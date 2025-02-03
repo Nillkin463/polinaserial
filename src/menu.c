@@ -129,7 +129,7 @@ int menu_find_devices() {
 
     io_iterator_t iterator;
 
-    if (IOServiceGetMatchingServices(kIOMainPortDefault, matching_dict, &iterator) != KERN_SUCCESS) {
+    if (IOServiceGetMatchingServices(kIOMasterPortDefault, matching_dict, &iterator) != KERN_SUCCESS) {
         ERROR_PRINT("failed to get matching services");
         CFRelease(matching_dict);
         return -1;

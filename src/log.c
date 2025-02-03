@@ -225,4 +225,3 @@ void log_queisce() {
         remove(path);
     }
 }
-

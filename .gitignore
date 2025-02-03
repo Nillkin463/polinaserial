@@ -1,2 +1,6 @@
+.clangd
+.vscode
 /build
 .DS_Store
+/polinaserial_tag_db.json
+.tag

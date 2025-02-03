@@ -5,12 +5,10 @@
 //  Created by noone on 11/5/21.
 //
 
-//#define PRODUCT_NAME   "polinaserial" - now comes from Makefile
-#define VERSION_MAJOR  0
-#define VERSION_MINOR  3
-
 #include <stdio.h>
 #include <assert.h>
+#include <dlfcn.h>
+#include <mach-o/getsect.h>
 
 #include <configuration.h>
 #include <baudrate_presets.h>
@@ -20,10 +18,23 @@
 #include <log.h>
 #include <lolcat.h>
 #include <iboot.h>
+#include <string.h>
 #include <utils.h>
 
 void version() {
-    BOLD_PRINT("%s-%d.%d", PRODUCT_NAME, VERSION_MAJOR, VERSION_MINOR);
+    unsigned long size;
+    uint8_t *data = getsectiondata(dlsym(RTLD_MAIN_ONLY, "_mh_execute_header"), "__TEXT", "__build_tag", &size);
+    if (data) {
+        char tag[size + 1];
+        memcpy(tag, data, size);
+        tag[size] = '\0';
+        BOLD_PRINT("%s", tag);
+    } else {
+        WARNING_PRINT("failed to get embedded build tag");
+        BOLD_PRINT(PRODUCT_NAME "-unknown");
+    }
+
+
     BOLD_PRINT("made by john (@nyan_satan)");
     printf("\n");
 }
