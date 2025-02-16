@@ -1,5 +1,5 @@
-#ifndef LIBNS_LL_H
-#define LIBNS_LL_H
+#ifndef APP_LL_H
+#define APP_LL_H
 
 #include <stdlib.h>
 

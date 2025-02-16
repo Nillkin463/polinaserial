@@ -20,8 +20,6 @@ class AdvanceLevel(IntEnum):
     QUADRO = 3
     PENTA  = 4
 
-MAX_LEVEL = AdvanceLevel.PENTA
-
 def error(s):
     print("[POLINATAG] " + s, file=sys.stderr)
 
@@ -126,7 +124,7 @@ def advance_tag(comps: list[int], factor: AdvanceLevel, levels: int) -> list[int
 
     return new_comps
 
-def print_tag(name: str, comps: list[int]):
+def print_tag(name: str, comps: list[int], line_break: bool = False):
     base = name + "-"
 
     comps_enc = list()
@@ -140,7 +138,13 @@ def print_tag(name: str, comps: list[int]):
         exit(-1)
 
     result = base + ".".join(comps_enc[::-1])
-    print(result)
+
+    if line_break:
+        endc = "\n"
+    else:
+        endc = ""
+
+    print(result, end=endc)
 
 def print_private():
     date = datetime.now(timezone.utc)
@@ -155,7 +159,7 @@ def print_private():
         date.strftime("%H:%M:%S")
     )
 
-    print(result)
+    print(result, end="")
 
 def db_open(path: Path) -> Database:
     with open(path, "r") as f:
@@ -234,7 +238,7 @@ def do_print(args):
     else:
         comps = db.current.comps
 
-    print_tag(db.name, comps)
+    print_tag(db.name, comps, True)
 
 def main():
     parser = argparse.ArgumentParser(description="Apple XBS-like build tag generator")

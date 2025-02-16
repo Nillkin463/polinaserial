@@ -1,23 +1,23 @@
-#include <iboot.h>
-#include <iboot_config.h>
+#include "iboot.h"
+#include "iboot_config.h"
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <unistd.h>
 
 typedef enum {
     STATE_WAITING_FOR_HMAC = 0,
     STATE_WAITING_FOR_LINE,
-    //STATE_WAITING_FOR_BREAK
 } iboot_hmac_state_t;
 
-uint64_t current_hmac = 0;
-uint8_t hmac_digit_count = 0;
+static uint64_t current_hmac = 0;
+static uint8_t hmac_digit_count = 0;
 
-uint32_t current_line = 0;
-uint8_t line_digit_count = 0;
+static uint32_t current_line = 0;
+static uint8_t line_digit_count = 0;
 
-iboot_hmac_state_t state = STATE_WAITING_FOR_HMAC;
+static iboot_hmac_state_t state = STATE_WAITING_FOR_HMAC;
 
 static void iboot_clear_state() {
     current_hmac = 0;
@@ -47,12 +47,7 @@ static int8_t iboot_line_character(char c) {
     }
 }
 
-#ifdef TEST
-const char *iboot_find_file_for_hmac(uint64_t hmac)
-#else
-static const char *iboot_find_file_for_hmac(uint64_t hmac)
-#endif
-{
+static const char *iboot_find_file_for_hmac(uint64_t hmac) {
     if (hmac < iboot_hmac_config[0].hmac || hmac > iboot_hmac_config[iboot_hmac_config_count - 1].hmac) {
         return NULL;
     }
@@ -80,7 +75,7 @@ static const char *iboot_find_file_for_hmac(uint64_t hmac)
 }
 
 static void iboot_print_file_and_line(int fd, const char *file, uint32_t line) {
-    char result[1024];
+    char result[PATH_MAX + 16 + 1];
 
     int ret = snprintf(result, sizeof(result), "\t\033[1;32m<%s:%d>\033[0m", file, line);
 

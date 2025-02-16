@@ -1,14 +1,13 @@
-#include <menu.h>
-#include <utils.h>
-
 #include <string.h>
-
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/USBSpec.h>
 
-menu_serial_item_t *_devices = NULL;
+#include <app/misc.h>
+#include "menu.h"
 
-io_registry_entry_t iokit_get_parent_with_class(io_service_t service, const char *class) {
+static menu_serial_item_t *_devices = NULL;
+
+static io_registry_entry_t iokit_get_parent_with_class(io_service_t service, const char *class) {
     io_name_t name;
     io_registry_entry_t prev_parent = IO_OBJECT_NULL;
     io_registry_entry_t parent = service;
@@ -23,7 +22,7 @@ io_registry_entry_t iokit_get_parent_with_class(io_service_t service, const char
         }
 
         if (IOObjectGetClass(parent, name) != KERN_SUCCESS) {
-            WARNING_PRINT("failed to get IOObject name");
+            WARNING("failed to get IOObject name");
             IOObjectRelease(parent);
             return IO_OBJECT_NULL;
         }
@@ -37,7 +36,7 @@ io_registry_entry_t iokit_get_parent_with_class(io_service_t service, const char
     return parent;
 }
 
-menu_serial_item_t *menu_device_from_service(io_service_t service) {
+static menu_serial_item_t *menu_device_from_service(io_service_t service) {
     menu_serial_item_t *device = NULL;
     CFMutableDictionaryRef properties = NULL;
     CFStringRef tty_name = NULL;
@@ -48,25 +47,25 @@ menu_serial_item_t *menu_device_from_service(io_service_t service) {
     CFStringRef usb_name = NULL;
 
     if (IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, kNilOptions) != KERN_SUCCESS) {
-        ERROR_PRINT("failed to get IOService properties");
+        ERROR("failed to get IOService properties");
         goto out;
     }
 
     tty_name = CFDictionaryGetValue(properties, CFSTR("IOTTYDevice"));
     if (!tty_name) {
-        ERROR_PRINT("failed to get IOTTYDevice");
+        ERROR("failed to get IOTTYDevice");
         goto out;
     }
 
     tty_suffix = CFDictionaryGetValue(properties, CFSTR("IOTTYSuffix"));
     if (!tty_suffix) {
-        ERROR_PRINT("failed to get IOTTYSuffix");
+        ERROR("failed to get IOTTYSuffix");
         goto out;
     }
 
     callout_device = CFDictionaryGetValue(properties, CFSTR("IOCalloutDevice"));
     if (!callout_device) {
-        ERROR_PRINT("failed to get IOCalloutDevice");
+        ERROR("failed to get IOCalloutDevice");
         goto out;
     }
 
@@ -79,13 +78,13 @@ menu_serial_item_t *menu_device_from_service(io_service_t service) {
         if (IORegistryEntryCreateCFProperties(usb_parent, &usb_parent_properties, kCFAllocatorDefault, kNilOptions) == KERN_SUCCESS) {
             usb_name = CFDictionaryGetValue(usb_parent_properties, CFSTR(kUSBProductString));
         } else {
-            WARNING_PRINT("failed to get USB IOService properties");
+            WARNING("failed to get USB IOService properties");
         }
     }
 
     device = calloc(sizeof(menu_serial_item_t), 1);
     if (!device) {
-        ERROR_PRINT("failed to allocate memory");
+        ERROR("failed to allocate memory");
         goto out;
     }
 
@@ -108,14 +107,17 @@ menu_serial_item_t *menu_device_from_service(io_service_t service) {
     }
 
 out:
-    if (properties)
+    if (properties) {
         CFRelease(properties);
+    }
 
-    if (usb_parent)
+    if (usb_parent) {
         IOObjectRelease(usb_parent);
+    }
 
-    if (usb_parent_properties)
+    if (usb_parent_properties) {
         CFRelease(usb_parent_properties);
+    }
 
     return device;
 }
@@ -123,14 +125,14 @@ out:
 int menu_find_devices() {
     CFMutableDictionaryRef matching_dict = IOServiceMatching("IOSerialBSDClient");
     if (!matching_dict) {
-        ERROR_PRINT("failed to get matching dict from IOKit");
+        ERROR("failed to get matching dict from IOKit");
         return -1;
     }
 
     io_iterator_t iterator;
 
     if (IOServiceGetMatchingServices(kIOMasterPortDefault, matching_dict, &iterator) != KERN_SUCCESS) {
-        ERROR_PRINT("failed to get matching services");
+        ERROR("failed to get matching services");
         CFRelease(matching_dict);
         return -1;
     }
@@ -143,7 +145,7 @@ int menu_find_devices() {
 
         if (!item) {
             IOObjectRelease(iterator);
-            ERROR_PRINT("failed to get menu device");
+            ERROR("failed to get menu device");
             return -1;
         }
 
@@ -154,28 +156,33 @@ int menu_find_devices() {
 }
 
 menu_serial_item_t *menu_pick() {
+    if (!_devices) {
+        ERROR("no devices found");
+        goto fail;
+    }
+
     unsigned int index = 0;
     static const char start = 'a';
-    char curr_str[1024] = { 0 };
 
-    BOLD_PRINT("Select a device from the list below:");
+    INFO("\nSelect a device from the list below:");
 
     ll_iterate(_devices, menu_serial_item_t *, current, {
         printf("\t(%c) ", index + start);
 
         if (current->usb_name) {
-            CFStringGetCString(current->usb_name, curr_str, sizeof(curr_str), kCFStringEncodingUTF8);
-            BOLD_PRINT_NO_RETURN("%s", curr_str);
+            MENU_STR_FROM_CFSTR(__usb_name, current->usb_name);
+            INFO_NO_BREAK("%s", __usb_name);
 
             if (current->tty_suffix) {
-                CFStringGetCString(current->tty_suffix, curr_str, sizeof(curr_str), kCFStringEncodingUTF8);
-                BOLD_PRINT_NO_RETURN("-%s", curr_str);
+                MENU_STR_FROM_CFSTR(__tty_suffix, current->tty_suffix);
+                INFO_NO_BREAK("-%s", __tty_suffix);
             }
 
             printf(" on ");
         }
 
-        printf("%s", STR_FROM_CFSTR(current->callout_device));
+        MENU_STR_FROM_CFSTR(__callout, current->callout_device);
+        printf("%s", __callout);
 
         printf("\n");
 
@@ -185,16 +192,16 @@ menu_serial_item_t *menu_pick() {
     unsigned int result_index = -1;
 
     do {
-        BOLD_PRINT_NO_RETURN("Option: ");
+        INFO_NO_BREAK("Option: ");
 
         char result_char = getchar();
-        if (result_char == '\n')
+        if (result_char == '\n') {
             continue;
-        
+        }
+
         getchar();
         result_index = result_char - start;
     } while (result_index >= index);
-
 
     unsigned int iterate_index = 0;
 
@@ -206,12 +213,14 @@ menu_serial_item_t *menu_pick() {
         iterate_index++;
     });
 
+fail:
     return NULL;
 }
 
 menu_serial_item_t *menu_find_by_callout(const char *callout) {
     ll_iterate(_devices, menu_serial_item_t *, current, {
-        if (strcmp(callout, STR_FROM_CFSTR(current->callout_device)) == 0) {
+        MENU_STR_FROM_CFSTR(__callout, current->callout_device);
+        if (strcmp(callout, __callout) == 0) {
             return current;
         }
     });
@@ -219,11 +228,7 @@ menu_serial_item_t *menu_find_by_callout(const char *callout) {
     return NULL;
 }
 
-const char *menu_get_callout_from_item(menu_serial_item_t *item) {
-    return STR_FROM_CFSTR(item->callout_device);
-}
-
-void _menu_destroy_element(menu_serial_item_t *element) {
+static void _menu_destroy_element(menu_serial_item_t *element) {
     CFRelease(element->tty_name);
     CFRelease(element->callout_device);
 
@@ -239,7 +244,6 @@ void _menu_destroy_element(menu_serial_item_t *element) {
 void menu_destroy() {
     if (_devices) {
         ll_destroy(_devices, _menu_destroy_element);
+        _devices = NULL;
     }
-
-    _devices = NULL;
 }

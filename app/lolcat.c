@@ -1,13 +1,12 @@
-#include <lolcat.h>
+#include "lolcat.h"
 
 #include <stdio.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #define ESCAPE_SEQUENCE "\x1B[38;5;%dm%c\x1B[39m"
-#define SKIP_COUNT  3
+#define SKIP_COUNT      (3)
 
 static const uint8_t lolcat_lut[] = {
     214, 208, 208, 203, 203, 198, 198, 199, 199, 164, 164, 128, 129, 93, 93, 63, 63, 63, 33, 33, 39, 38, 44, 44, 49, 49, 48, 48, 83, 83, 118, 118, 154, 154, 184, 184, 178, 214
@@ -15,9 +14,9 @@ static const uint8_t lolcat_lut[] = {
 
 static const size_t lolcat_lut_size = sizeof(lolcat_lut);
 
-int lut_position = 0;
-int lut_position_skip = 0;
-int lut_line_position = 0;
+static int lut_position = 0;
+static int lut_position_skip = 0;
+static int lut_line_position = 0;
 
 static int lut_position_increment_simple(int current) {
     return (current == lolcat_lut_size - 1) ? 0 : ++current;
@@ -39,7 +38,7 @@ static bool lolcat_printable(char c) {
     return c > 0x20 && c < 0x7F;
 }
 
-void lolcat_print(int fd, char c) {
+void lolcat_print_char(int fd, char c) {
     if (lolcat_printable(c)) {
         char sequence[20];
 
@@ -59,7 +58,7 @@ void lolcat_print(int fd, char c) {
             case '\n':
                 lut_line_position = lut_position_increment_simple(lut_line_position);
                 lut_position = lut_line_position;
-                //break is missing intentionally
+                // break is missed intentionally
 
             default:
                 write(fd, &c, 1);

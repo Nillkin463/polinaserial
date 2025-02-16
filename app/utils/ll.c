@@ -1,5 +1,4 @@
-#include <ll.h>
-#include <stdio.h>
+#include <app/ll.h>
 
 void _ll_add_element(ll_t *head, ll_t element) {
     if (*head) {
@@ -15,14 +14,14 @@ void _ll_add_element(ll_t *head, ll_t element) {
     }
 }
 
-void _ll_destroy(ll_t *head, ll_destroy_callback_t callback) {
+void _ll_destroy(ll_t *head, ll_destroy_callback_t cb) {
     ll_t curr = *head;
 
     while (curr) {
         ll_t next = curr->next;
 
-        if (callback) {
-            callback(curr);
+        if (cb) {
+            cb(curr);
         }
 
         free(curr);

@@ -1,5 +1,5 @@
-#ifndef IBOOT_H
-#define IBOOT_H
+#ifndef APP_IBOOT_H
+#define APP_IBOOT_H
 
 #include <stdint.h>
 #include <stddef.h>

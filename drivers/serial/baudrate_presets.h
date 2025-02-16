@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-
 struct baudrate_preset {
     const char *name;
     uint32_t baudrate;

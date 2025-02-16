@@ -2,58 +2,63 @@
 # polinaserial makefile
 #
 
+MODULES := \
+	app \
+	drivers/serial
+
 PROJ_NAME ?= polinaserial
-WITH_UART_EXTRA ?= 0
 
 PYTHON ?= python3
 
 CC ?= clang
 
-ARCHS = -arch x86_64 -arch arm64
-MACOSX_MIN_VERSION = -mmacosx-version-min=10.7
+ARCHS := -arch x86_64 -arch arm64
+MACOSX_MIN_VERSION := -mmacosx-version-min=10.7
 
-BUILD_TAG_DB=polinaserial_tag_db.json
-BUILD_TAG_FILE=.tag
+BUILD_TAG_DB := polinaserial_tag_db.json
+BUILD_TAG_FILE := .tag
 
 $(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) > $(BUILD_TAG_FILE))
 
-_CFLAGS += $(ARCHS)
+_CFLAGS := $(ARCHS)
 _CFLAGS += $(MACOSX_MIN_VERSION)
 _CFLAGS += -O3
 _CFLAGS += -Iinclude
 _CFLAGS += -MMD
-_CFLAGS += -DWITH_UART_EXTRA=$(WITH_UART_EXTRA)
 _CFLAGS += -DPRODUCT_NAME=\"$(PROJ_NAME)\"
-_CFLAGS += $(CFLAGS)
+# _CFLAGS += $(CFLAGS)
 
-_LDFLAGS += $(ARCHS)
+_LDFLAGS := $(ARCHS)
 _LDFLAGS += $(MACOSX_MIN_VERSION)
 _LDFLAGS += -framework CoreFoundation
 _LDFLAGS += -framework IOKit
 _LDFLAGS += -sectcreate __TEXT __build_tag $(BUILD_TAG_FILE)
-_LDFLAGS += $(LDFLAGS)
+# _LDFLAGS += $(LDFLAGS)
 
+SUFFIX :=
 
-SRC_ROOT = src
-BUILD_ROOT = build
+ifeq ($(CONFIG),asan)
+	_CFLAGS += -fsanitize=address
+	_LDFLAGS += -fsanitize=address
+	SUFFIX := asan
+endif
 
-SOURCES = \
-	main.c \
-	configuration.c \
-	ll.c \
-	menu.c \
-	device.c \
-	serial.c \
-	log.c \
-	lolcat.c \
-	iboot.c
-
-_SOURCES = $(addprefix $(SRC_ROOT)/, $(SOURCES))
-OBJECTS = $(addprefix $(BUILD_ROOT)/, $(_SOURCES:.c=.o))
-
-BINARY = $(BUILD_ROOT)/$(PROJ_NAME)
+BUILD_ROOT := build
+CURRENT_ROOT := $(BUILD_ROOT)/$(SUFFIX)
 
 DIR_HELPER = mkdir -p $(@D)
+GET_LOCAL_DIR = $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
+
+ifneq ($(SUFFIX),)
+	BINARY := $(BUILD_ROOT)/$(PROJ_NAME)_$(SUFFIX)
+else
+	BINARY := $(BUILD_ROOT)/$(PROJ_NAME)
+endif
+
+OPTIONS :=
+OBJECTS :=
+
+-include $(addsuffix /rules.mk,$(MODULES))
 
 .PHONY: clean all
 
@@ -66,10 +71,10 @@ $(BINARY): $(OBJECTS)
 	@$(DIR_HELPER)
 	@$(CC) $(_LDFLAGS) $^ -o $@
 
-$(BUILD_ROOT)/%.o: %.c
+$(CURRENT_ROOT)/%.o: %.c
 	@echo "\tbuilding C: $<"
 	@$(DIR_HELPER)
-	@$(CC) $(_CFLAGS) -c $< -o $@ 
+	@$(CC) $(_CFLAGS) $(OPTIONS) -c $< -o $@ 
 
 clean:
 	$(shell rm -rf $(BUILD_ROOT))

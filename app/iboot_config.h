@@ -1,7 +1,7 @@
-#ifndef IBOOT_CONFIG_H
-#define IBOOT_CONFIG_H
+#ifndef APP_IBOOT_CONFIG_H
+#define APP_IBOOT_CONFIG_H
 
-#include <iboot.h>
+#include "iboot.h"
 
 static const iboot_hmac_config_t iboot_hmac_config[] = {
     {0x00043e66d49b7786, "drivers/apple/audio/debug.c"},
