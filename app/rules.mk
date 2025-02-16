@@ -11,4 +11,4 @@ OBJECTS += \
 	$(CURRENT_ROOT)/$(LOCAL_DIR)/lolcat.o \
 	$(CURRENT_ROOT)/$(LOCAL_DIR)/iboot.o
 
-_CFLAGS += -I$(LOCAL_DIR)/include
+CFLAGS += -I$(LOCAL_DIR)/include

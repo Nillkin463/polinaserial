@@ -8,9 +8,11 @@ MODULES := \
 
 PROJ_NAME ?= polinaserial
 
+CC ?= clang
 PYTHON ?= python3
 
-CC ?= clang
+CODESIGN := codesign
+CODESIGN_FLAGS := -s - -f
 
 ARCHS := -arch x86_64 -arch arm64
 MACOSX_MIN_VERSION := -mmacosx-version-min=10.7
@@ -20,45 +22,53 @@ BUILD_TAG_FILE := .tag
 
 $(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) > $(BUILD_TAG_FILE))
 
-_CFLAGS := $(ARCHS)
-_CFLAGS += $(MACOSX_MIN_VERSION)
-_CFLAGS += -O3
-_CFLAGS += -Iinclude
-_CFLAGS += -MMD
-_CFLAGS += -DPRODUCT_NAME=\"$(PROJ_NAME)\"
-# _CFLAGS += $(CFLAGS)
+CFLAGS := $(ARCHS)
+CFLAGS += $(MACOSX_MIN_VERSION)
+CFLAGS += -O3
+CFLAGS += -Iinclude
+CFLAGS += -MMD
+CFLAGS += -DPRODUCT_NAME=\"$(PROJ_NAME)\"
 
-_LDFLAGS := $(ARCHS)
-_LDFLAGS += $(MACOSX_MIN_VERSION)
-_LDFLAGS += -framework CoreFoundation
-_LDFLAGS += -framework IOKit
-_LDFLAGS += -sectcreate __TEXT __build_tag $(BUILD_TAG_FILE)
-# _LDFLAGS += $(LDFLAGS)
+LDFLAGS := $(ARCHS)
+LDFLAGS += $(MACOSX_MIN_VERSION)
+LDFLAGS += -framework CoreFoundation
+LDFLAGS += -framework IOKit
+LDFLAGS += -sectcreate __TEXT __build_tag $(BUILD_TAG_FILE)
+LDFLAGS += -Wl,-no_adhoc_codesign
 
-SUFFIX :=
+STYLE ?= RELEASE
 
-ifeq ($(CONFIG),asan)
-	_CFLAGS += -fsanitize=address
-	_LDFLAGS += -fsanitize=address
-	SUFFIX := asan
+ifeq ($(STYLE),ASAN)
+	CFLAGS += -fsanitize=address
+	LDFLAGS += -fsanitize=address
+else ifeq ($(STYLE),PROFILING)
+	CFLAGS += -gfull
+	LDFLAGS += -gfull
+	CODESIGN_FLAGS += --entitlements gta.entitlements
+else ifeq ($(STYLE),RELEASE)
+# nop
+else ifneq ($(STYLE),)
+$(error unknown STYLE)
 endif
 
 BUILD_ROOT := build
-CURRENT_ROOT := $(BUILD_ROOT)/$(SUFFIX)
+CURRENT_ROOT := $(BUILD_ROOT)/$(STYLE)
 
 DIR_HELPER = mkdir -p $(@D)
 GET_LOCAL_DIR = $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 
-ifneq ($(SUFFIX),)
-	BINARY := $(BUILD_ROOT)/$(PROJ_NAME)_$(SUFFIX)
+ifneq ($(STYLE),RELEASE)
+	BINARY := $(BUILD_ROOT)/$(PROJ_NAME)-$(STYLE)
 else
 	BINARY := $(BUILD_ROOT)/$(PROJ_NAME)
 endif
 
+MODULES_INCLUDES := $(addsuffix /rules.mk,$(MODULES))
+
 OPTIONS :=
 OBJECTS :=
 
--include $(addsuffix /rules.mk,$(MODULES))
+-include $(MODULES_INCLUDES)
 
 .PHONY: clean all
 
@@ -69,12 +79,13 @@ all: $(BINARY)
 $(BINARY): $(OBJECTS)
 	@echo "\tlinking"
 	@$(DIR_HELPER)
-	@$(CC) $(_LDFLAGS) $^ -o $@
+	@$(CC) $(LDFLAGS) $^ -o $@
+	@$(CODESIGN) $(CODESIGN_FLAGS) $@
 
 $(CURRENT_ROOT)/%.o: %.c
-	@echo "\tbuilding C: $<"
+	@echo "\tcompiling C: $<"
 	@$(DIR_HELPER)
-	@$(CC) $(_CFLAGS) $(OPTIONS) -c $< -o $@ 
+	@$(CC) $(CFLAGS) $(OPTIONS) -c $< -o $@ 
 
 clean:
 	$(shell rm -rf $(BUILD_ROOT))
