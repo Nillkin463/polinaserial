@@ -20,7 +20,7 @@ MACOSX_MIN_VERSION := -mmacosx-version-min=10.7
 BUILD_TAG_DB := polinaserial_tag_db.json
 BUILD_TAG_FILE := .tag
 
-$(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) > $(BUILD_TAG_FILE))
+$(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) -i > $(BUILD_TAG_FILE))
 
 CFLAGS := $(ARCHS)
 CFLAGS += $(MACOSX_MIN_VERSION)
@@ -73,14 +73,15 @@ OBJECTS :=
 .PHONY: clean all
 
 all: $(BINARY)
-	@$(shell $(PYTHON) polinatag.py commit $(BUILD_TAG_DB))
 	@echo "%%%%% done building"
 
 $(BINARY): $(OBJECTS)
 	@echo "\tlinking"
 	@$(DIR_HELPER)
 	@$(CC) $(LDFLAGS) $^ -o $@
+	@echo "\tcodesigning"
 	@$(CODESIGN) $(CODESIGN_FLAGS) $@
+	@$(shell $(PYTHON) polinatag.py commit $(BUILD_TAG_DB))
 
 $(CURRENT_ROOT)/%.o: %.c
 	@echo "\tcompiling C: $<"

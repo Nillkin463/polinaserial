@@ -124,7 +124,7 @@ def advance_tag(comps: list[int], factor: AdvanceLevel, levels: int) -> list[int
 
     return new_comps
 
-def print_tag(name: str, comps: list[int], line_break: bool = False):
+def print_tag(name: str, comps: list[int], iteration: int, with_iter: bool = False, line_break: bool = False):
     base = name + "-"
 
     comps_enc = list()
@@ -138,6 +138,9 @@ def print_tag(name: str, comps: list[int], line_break: bool = False):
         exit(-1)
 
     result = base + ".".join(comps_enc[::-1])
+
+    if with_iter and iteration > 0:
+        result += "~%d" % (iteration + 1)
 
     if line_break:
         endc = "\n"
@@ -203,7 +206,7 @@ def do_generate(args):
     with open(db_path, "w") as f:
         f.write(result)
 
-    print_tag(db.name, db.staged.comps)
+    print_tag(db.name, db.staged.comps, db.staged.iteration, with_iter=args.with_iter, line_break=False)
 
 def do_commit(args):
     db_path = Path(args.database)
@@ -235,10 +238,12 @@ def do_print(args):
             exit(-1)
 
         comps = db.staged.comps
+        iteration = db.staged.iteration
     else:
         comps = db.current.comps
+        iteration = db.current.iteration
 
-    print_tag(db.name, comps, True)
+    print_tag(db.name, comps, iteration, with_iter=args.with_iter, line_break=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Apple XBS-like build tag generator")
@@ -254,6 +259,7 @@ def main():
     generate_parse.set_defaults(func=do_generate)
     generate_parse.add_argument("root", help="source root")
     generate_parse.add_argument("database", help="database file")
+    generate_parse.add_argument("-i", dest="with_iter", action="store_true", help="print with iteration")
 
     commit_parse = subparsers.add_parser("commit", help="commit build tag to database")
     commit_parse.set_defaults(func=do_commit)
@@ -263,6 +269,7 @@ def main():
     print_parse.set_defaults(func=do_print)
     print_parse.add_argument("database", help="database file")
     print_parse.add_argument("-s", dest="staged", action="store_true", help="print staged instead")
+    print_parse.add_argument("-i", dest="with_iter", action="store_true", help="print with iteration")
 
     args = parser.parse_args()
     if not hasattr(args, "func"):
