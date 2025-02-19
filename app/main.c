@@ -90,17 +90,17 @@ static void app_event_loop() {
 
     switch (event) {
         case APP_EVENT_DISCONNECT_DEVICE: {
-            INFO("[disconnected - device disappeared]\r");
+            INFO("[disconnected - device disappeared]");
             break;
         }
 
         case APP_EVENT_DISCONNECT_USER: {
-            INFO("[disconnected]\r");
+            INFO("[disconnected]");
             break;
         }
 
         case APP_EVENT_ERROR: {
-            ERROR("[internal error]\r");
+            ERROR("[internal error]");
             break;
         }
 
@@ -111,7 +111,7 @@ static void app_event_loop() {
     event_unsignal(&ctx.event);
 }
 
-#define APP_OUT_BUFFER_SIZE     (DRIVER_MAX_BUFFER_SIZE * 12 + 32)
+#define APP_OUT_BUFFER_SIZE     (DRIVER_MAX_BUFFER_SIZE * 8 + 32)
 #define APP_OUT_IBOOT_POS_CNT   (128)
 
 static int app_out_callback(char *in_buf, size_t in_len) {

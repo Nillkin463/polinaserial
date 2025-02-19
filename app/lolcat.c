@@ -34,26 +34,27 @@ static const struct lolcat_color lolcat_lut[] = {
     LOLCAT_CLR(178), LOLCAT_CLR(214)
 };
 
-static const size_t lolcat_lut_size = sizeof(lolcat_lut) / sizeof(*lolcat_lut);
+#define LOLCAT_LUT_CNT  (sizeof(lolcat_lut) / sizeof(*lolcat_lut))
 
-static int lut_position = 0;
-static int lut_position_skip = 0;
-static int lut_line_position = 0;
+static int lut_pos = 0;
+static int lut_pos_prev = 0;
+static int lut_line_pos = 0;
+static int lut_pos_skip = 0;
 
-static int lut_position_increment_simple(int current) {
-    return (current == lolcat_lut_size - 1) ? 0 : ++current;
+static int lut_pos_increment_simple(int curr) {
+    return (curr == LOLCAT_LUT_CNT - 1) ? 0 : ++curr;
 }
 
-static int lut_position_increment(int current) {
-    lut_position_skip++;
+static int lut_pos_increment(int curr) {
+    lut_pos_skip++;
 
-    if (lut_position_skip != SKIP_COUNT) {
-        return current;
+    if (lut_pos_skip != SKIP_COUNT) {
+        return curr;
     }
 
-    lut_position_skip = 0;
+    lut_pos_skip = 0;
 
-    return lut_position_increment_simple(current);
+    return lut_pos_increment_simple(curr);
 }
 
 static bool lolcat_printable(char c) {
@@ -94,25 +95,28 @@ int lolcat_push_data(const char *data, size_t data_len, char *out, size_t *out_l
         PUSH_OFF();
 
         if (lolcat_printable(c)) {
-            const struct lolcat_color *clr = &lolcat_lut[lut_position];
+            if (lut_pos_prev != lut_pos) {
+                const struct lolcat_color *clr = &lolcat_lut[lut_pos];
+                PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
+                PUSH(clr->clr, clr->len);
+                PUSH(STOP, CONST_STRLEN(STOP));
+                lut_pos_prev = lut_pos;
+            }
 
-            PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
-            PUSH(clr->clr, clr->len);
-            PUSH(STOP, CONST_STRLEN(STOP));
             PUSH(data + i, 1);
 
-            lut_position = lut_position_increment(lut_position);
+            lut_pos = lut_pos_increment(lut_pos);
 
         } else {
             switch (c) {
                 case ' ':
                     PUSH(" ", 1);
-                    lut_position = lut_position_increment(lut_position);
+                    lut_pos = lut_pos_increment(lut_pos);
                     break;
 
                 case '\n':
-                    lut_line_position = lut_position_increment_simple(lut_line_position);
-                    lut_position = lut_line_position;
+                    lut_line_pos = lut_pos_increment_simple(lut_line_pos);
+                    lut_pos = lut_line_pos;
                     /* break is missed intentionally */
     
                 default:
@@ -129,10 +133,13 @@ int lolcat_push_data(const char *data, size_t data_len, char *out, size_t *out_l
         *offs_cnt = _offs_cnt;
     }
 
+    lut_pos_prev = -1;
+
     return 0;
 }
 
 void lolcat_init() {
-    lut_position = arc4random_uniform(lolcat_lut_size - 1);
-    lut_line_position = lut_position;
+    lut_pos = arc4random_uniform(LOLCAT_LUT_CNT - 1);
+    lut_pos_prev = -1;
+    lut_line_pos = lut_pos;
 }
