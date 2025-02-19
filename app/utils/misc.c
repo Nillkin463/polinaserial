@@ -31,7 +31,6 @@ const char *last_path_component(const char *path) {
     }
 }
 
-
 int mkdir_recursive(const char *path) {
     char temp[PATH_MAX + 1];
     char *curr = (char *)&temp;
@@ -63,6 +62,16 @@ int mkdir_recursive(const char *path) {
             return 0;
         }
     }
-
 }
 
+char *itoa(int i, char *a, size_t l) {
+    a[--l] = '\0';
+
+    do {
+        int curr = i % 10;
+        a[l--] = '0' + curr;
+        i /= 10;
+    } while (i && l);
+
+    return a + l;
+}

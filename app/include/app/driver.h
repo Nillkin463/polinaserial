@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <limits.h>
 
+#define DRIVER_MAX_BUFFER_SIZE  (1024)
+
 typedef int (*driver_event_cb_t)(char *buf, size_t len);
 
 typedef struct {

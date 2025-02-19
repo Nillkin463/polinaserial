@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <unistd.h>
+#include <string.h>
+#include <app/misc.h>
 
 typedef enum {
     STATE_WAITING_FOR_HMAC = 0,
@@ -74,68 +76,96 @@ static const char *iboot_find_file_for_hmac(uint64_t hmac) {
     return NULL;
 }
 
-static void iboot_print_file_and_line(int fd, const char *file, uint32_t line) {
-    char result[PATH_MAX + 16 + 1];
+int iboot_push_data(const char *data, size_t data_len, iboot_file_pos_t pos[], size_t *pos_cnt) {
+    size_t max_pos_cnt = *pos_cnt;
+    size_t _pos_cnt = 0;
 
-    int ret = snprintf(result, sizeof(result), "\t\033[1;32m<%s:%d>\033[0m", file, line);
+    for (size_t i = 0; i < data_len; i++) {
+        char c = data[i];
 
-    write(fd, result, ret);
-}
+        switch (state) {
+            case STATE_WAITING_FOR_HMAC: {
+                int8_t hex_digit = iboot_hmac_character(c);
 
-void iboot_push_char(int fd, char c) {
-    switch (state) {
-        case STATE_WAITING_FOR_HMAC: {
-            int8_t hex_digit = iboot_hmac_character(c);
-
-            if (hex_digit != -1) {
-                if (hmac_digit_count == 64 / 4) {
-                    iboot_clear_state();
-                    return;
-                }
-
-                current_hmac |= (uint64_t)hex_digit << ((64 - hmac_digit_count * 4) - 4);
-        
-                hmac_digit_count++;
-
-            } else {
-                if (c == ':' && hmac_digit_count > 0) {
-                    if (hmac_digit_count != 64 / 4) {
-                        current_hmac >>= (64 - hmac_digit_count * 4);
+                if (hex_digit != -1) {
+                    if (hmac_digit_count == 64 / 4) {
+                        iboot_clear_state();
+                        break;
                     }
 
-                    state = STATE_WAITING_FOR_LINE;
+                    current_hmac |= (uint64_t)hex_digit << ((64 - hmac_digit_count * 4) - 4);
+
+                    hmac_digit_count++;
+
                 } else {
-                    iboot_clear_state();
+                    if (c == ':' && hmac_digit_count > 0) {
+                        if (hmac_digit_count != 64 / 4) {
+                            current_hmac >>= (64 - hmac_digit_count * 4);
+                        }
+
+                        state = STATE_WAITING_FOR_LINE;
+                    } else {
+                        iboot_clear_state();
+                    }
                 }
+
+                break;
             }
 
-            break;
-        }
+            case STATE_WAITING_FOR_LINE: {
+                int8_t line_digit = iboot_line_character(c);
 
-        case STATE_WAITING_FOR_LINE: {
-            int8_t line_digit = iboot_line_character(c);
-
-            if (line_digit != -1) {
-                if (line_digit_count == 6) {
-                    iboot_clear_state();
-                    return;
-                }
-
-                current_line = current_line * 10 + line_digit;
-
-            } else {
-                if (c == '\r' || c == '\n' || c == ' ') {
-                    const char *file = iboot_find_file_for_hmac(current_hmac);
-
-                    if (file) {
-                        iboot_print_file_and_line(fd, file, current_line);
+                if (line_digit != -1) {
+                    if (line_digit_count == 6) {
+                        iboot_clear_state();
+                        break;
                     }
 
-                    iboot_clear_state();
-                }
-            }
+                    current_line = current_line * 10 + line_digit;
 
-            break;
+                } else {
+                    if (c == '\r' || c == '\n' || c == ' ') {
+                        const char *file = iboot_find_file_for_hmac(current_hmac);
+
+                        if (file) {
+                            iboot_file_pos_t *curr = &pos[_pos_cnt];
+
+                            curr->off = i;
+                            curr->file = file;
+                            curr->line = current_line;
+
+                            _pos_cnt++;
+
+                            if (_pos_cnt == max_pos_cnt) {
+                                return -1;
+                            }
+                        }
+
+                        iboot_clear_state();
+                    }
+                }
+
+                break;
+            }
         }
     }
+
+    *pos_cnt = _pos_cnt;
+
+    return 0;
+}
+
+#define START_FILE  "\t" ANSI_START ANSI_GREEN ANSI_DELIM ANSI_BOLD ANSI_END "<"
+#define END_FILE    ">" ANSI_START ANSI_RESET ANSI_END
+
+void iboot_print_file(int fd, iboot_file_pos_t *pos) {
+    char line_buf[8] = { 0 };
+    char *line = NULL;
+
+    write(fd, START_FILE, CONST_STRLEN(START_FILE));
+    write(fd, pos->file, strlen(pos->file));
+    write(fd, ":", 1);
+    line = itoa(pos->line, line_buf, sizeof(line_buf));
+    write(fd, line, sizeof(line_buf) - (line - line_buf));
+    write(fd, END_FILE, CONST_STRLEN(END_FILE));
 }

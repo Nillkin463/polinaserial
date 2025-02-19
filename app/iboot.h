@@ -9,6 +9,13 @@ typedef struct {
     const char *file;
 } iboot_hmac_config_t;
 
-void iboot_push_char(int fd, char c);
+typedef struct {
+    uint16_t off;
+    int line;
+    const char *file;
+} iboot_file_pos_t;
+
+int  iboot_push_data(const char *data, size_t data_len, iboot_file_pos_t pos[], size_t *pos_cnt);
+void iboot_print_file(int fd, iboot_file_pos_t *pos);
 
 #endif

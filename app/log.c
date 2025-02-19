@@ -39,7 +39,7 @@ typedef struct __attribute__((packed)) {
     uint8_t quiesce : 1;
 } flush_event_t;
 
-static void *thread_handler(void *arg) {
+static void *log_thread_handler(void *arg) {
     while (true) {
         uint64_t _ev = event_wait(&ctx.flush_event);
         flush_event_t ev = *(flush_event_t *)&_ev;
@@ -154,7 +154,7 @@ int log_init(const char *dev_name) {
 
     event_init(&ctx.flush_event);
 
-    pthread_create(&ctx.thr, NULL, thread_handler, NULL);
+    pthread_create(&ctx.thr, NULL, log_thread_handler, NULL);
 
     ctx.inited = true;
 

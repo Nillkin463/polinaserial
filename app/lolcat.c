@@ -4,15 +4,37 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <string.h>
+#include <app/misc.h>
 
-#define ESCAPE_SEQUENCE "\x1B[38;5;%dm%c\x1B[39m"
-#define SKIP_COUNT      (3)
+#define COLOR_256  "\x1B[38;5;"
+#define STOP       "m"
+#define RESET      "\x1B[0m"
 
-static const uint8_t lolcat_lut[] = {
-    214, 208, 208, 203, 203, 198, 198, 199, 199, 164, 164, 128, 129, 93, 93, 63, 63, 63, 33, 33, 39, 38, 44, 44, 49, 49, 48, 48, 83, 83, 118, 118, 154, 154, 184, 184, 178, 214
+#define SKIP_COUNT  (3)
+
+struct lolcat_color {
+    char clr[4];
+    int len;
 };
 
-static const size_t lolcat_lut_size = sizeof(lolcat_lut);
+#define LOLCAT_CLR(_clr) \
+    {#_clr, CONST_STRLEN(#_clr)}
+
+static const struct lolcat_color lolcat_lut[] = {
+    LOLCAT_CLR(214), LOLCAT_CLR(208), LOLCAT_CLR(208), LOLCAT_CLR(203),
+    LOLCAT_CLR(203), LOLCAT_CLR(198), LOLCAT_CLR(198), LOLCAT_CLR(199),
+    LOLCAT_CLR(199), LOLCAT_CLR(164), LOLCAT_CLR(164), LOLCAT_CLR(128),
+    LOLCAT_CLR(129), LOLCAT_CLR(93),  LOLCAT_CLR(93),  LOLCAT_CLR(63),
+    LOLCAT_CLR(63),  LOLCAT_CLR(63),  LOLCAT_CLR(33),  LOLCAT_CLR(33),
+    LOLCAT_CLR(39),  LOLCAT_CLR(38),  LOLCAT_CLR(44),  LOLCAT_CLR(44),
+    LOLCAT_CLR(49),  LOLCAT_CLR(49),  LOLCAT_CLR(48),  LOLCAT_CLR(48),
+    LOLCAT_CLR(83),  LOLCAT_CLR(83),  LOLCAT_CLR(118), LOLCAT_CLR(118),
+    LOLCAT_CLR(154), LOLCAT_CLR(154), LOLCAT_CLR(184), LOLCAT_CLR(184),
+    LOLCAT_CLR(178), LOLCAT_CLR(214)
+};
+
+static const size_t lolcat_lut_size = sizeof(lolcat_lut) / sizeof(*lolcat_lut);
 
 static int lut_position = 0;
 static int lut_position_skip = 0;
@@ -38,33 +60,76 @@ static bool lolcat_printable(char c) {
     return c > 0x20 && c < 0x7F;
 }
 
-void lolcat_print_char(int fd, char c) {
-    if (lolcat_printable(c)) {
-        char sequence[20];
+int lolcat_push_data(const char *data, size_t data_len, char *out, size_t *out_len, uint16_t *offs, size_t *offs_cnt) {
+    size_t max_len = *out_len;
+    size_t _out_len = 0;
+    size_t max_offs_cnt = 0;
+    size_t _offs_cnt = 0;
 
-        int ret = snprintf(sequence, sizeof(sequence), ESCAPE_SEQUENCE, lolcat_lut[lut_position], c);
+    if (offs) {
+        max_offs_cnt = *offs_cnt;
+    }
 
-        write(fd, sequence, ret);
+#define PUSH(__data, __len) \
+    do { \
+        if (_out_len + __len > max_len) { \
+            return -1; \
+        } \
+        memcpy(out + _out_len, __data, __len); \
+        _out_len += __len; \
+    } while (0)
 
-        lut_position = lut_position_increment(lut_position);
+#define PUSH_OFF() \
+    if (offs) { \
+        offs[_offs_cnt] = _out_len; \
+        _offs_cnt++; \
+        if (_offs_cnt == max_offs_cnt) { \
+            return -1; \
+        } \
+    }
 
-    } else {
-        switch (c) {
-            case ' ':
-                write(fd, " ", 1);
-                lut_position = lut_position_increment(lut_position);
-                break;
-            
-            case '\n':
-                lut_line_position = lut_position_increment_simple(lut_line_position);
-                lut_position = lut_line_position;
-                // break is missed intentionally
+    for (size_t i = 0; i < data_len; i++) {
+        char c = data[i];
 
-            default:
-                write(fd, &c, 1);
-                break;
+        PUSH_OFF();
+
+        if (lolcat_printable(c)) {
+            const struct lolcat_color *clr = &lolcat_lut[lut_position];
+
+            PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
+            PUSH(clr->clr, clr->len);
+            PUSH(STOP, CONST_STRLEN(STOP));
+            PUSH(data + i, 1);
+
+            lut_position = lut_position_increment(lut_position);
+
+        } else {
+            switch (c) {
+                case ' ':
+                    PUSH(" ", 1);
+                    lut_position = lut_position_increment(lut_position);
+                    break;
+
+                case '\n':
+                    lut_line_position = lut_position_increment_simple(lut_line_position);
+                    lut_position = lut_line_position;
+                    /* break is missed intentionally */
+    
+                default:
+                    PUSH(&c, 1);
+                    break;
+            }
         }
     }
+
+    PUSH(RESET, CONST_STRLEN(RESET));
+
+    *out_len = _out_len;
+    if (offs_cnt) {
+        *offs_cnt = _offs_cnt;
+    }
+
+    return 0;
 }
 
 void lolcat_init() {

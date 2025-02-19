@@ -5,14 +5,30 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define STR_IMPL_(x) #x
-#define STR(x) STR_IMPL_(x)
+#define STR_IMPL_(x)    #x
+#define STR(x)          STR_IMPL_(x)
 
-#define INFO_NO_BREAK(format, ...) printf("\033[1m" format "\033[0m", ##__VA_ARGS__);
-#define INFO(format, ...) printf("\033[1m" format "\033[0m\r\n", ##__VA_ARGS__);
-#define SUCCESS(format, ...) printf("\033[1;32m" format "\033[0m\r\n", ##__VA_ARGS__);
-#define WARNING(format, ...) printf("\033[1;33m" format "\033[0m\r\n", ##__VA_ARGS__);
-#define ERROR(format, ...) printf("\033[1;31m" format "\033[0m\r\n", ##__VA_ARGS__);
+#define ANSI_START   "\x1b["
+#define ANSI_DELIM   ";"
+#define ANSI_BOLD    "1"
+#define ANSI_RED     "31"
+#define ANSI_GREEN   "32"
+#define ANSI_YELLOW  "33"
+#define ANSI_RESET   "0"
+#define ANSI_END     "m"
+
+#define INFO_NO_BREAK(__format, ...)    printf(ANSI_START ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
+#define INFO(__format, ...)             printf(ANSI_START ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END "\r\n", ##__VA_ARGS__);
+
+#define SUCCESS(__format, ...)              printf(ANSI_START ANSI_GREEN ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END "\r\n", ##__VA_ARGS__);
+#define SUCCESS_NO_BREAK(__format, ...)     printf(ANSI_START ANSI_GREEN ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
+
+#define WARNING(__format, ...)          printf(ANSI_START ANSI_YELLOW ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END "\r\n", ##__VA_ARGS__);
+
+#define ERROR(__format, ...)            printf(ANSI_START ANSI_RED ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END "\r\n", ##__VA_ARGS__);
+#define ERROR_NO_BREAK(__format, ...)   printf(ANSI_START ANSI_RED ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
+
+#define CONST_STRLEN(_s)    (sizeof(_s) - 1)
 
 #define REQUIRE(_cond, _label) \
     if (!(_cond)) { \
@@ -34,5 +50,6 @@ int mkdir_recursive(const char *path);
 int parse_numeric_arg(const char *arg, int base, uint64_t *val, uint64_t min_val, uint64_t max_val);
 const char *bool_on_off(bool status);
 const char *last_path_component(const char *path);
+char *itoa(int i, char *a, size_t l);
 
 #endif

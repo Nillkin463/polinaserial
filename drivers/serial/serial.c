@@ -78,13 +78,12 @@ out:
 }
 
 #define LOOP_SHUTDOWN_ID    (613)
-#define BUFFER_SIZE         (2048)
 
 static void *serial_loop(void *arg) {
     driver_event_cb_t cb = arg;
     app_event_t event = APP_EVENT_NONE;
     struct kevent ke = { 0 };
-    char buf[BUFFER_SIZE];
+    char buf[DRIVER_MAX_BUFFER_SIZE];
 
     ctx.kq = kqueue();
     if (ctx.kq == -1) {

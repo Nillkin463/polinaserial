@@ -100,7 +100,7 @@ static void app_event_loop() {
         }
 
         case APP_EVENT_ERROR: {
-            INFO("[internal error]\r");
+            ERROR("[internal error]\r");
             break;
         }
 
@@ -111,39 +111,70 @@ static void app_event_loop() {
     event_unsignal(&ctx.event);
 }
 
-static int app_out_callback(char *buffer, size_t length) {
-    /* lolcat & iBoot filters need per-character handling */
+#define APP_OUT_BUFFER_SIZE     (DRIVER_MAX_BUFFER_SIZE * 12 + 32)
+#define APP_OUT_IBOOT_POS_CNT   (128)
+
+static int app_out_callback(char *in_buf, size_t in_len) {
+    char *buf = in_buf;
+    size_t len = in_len;
+
+    char processed[APP_OUT_BUFFER_SIZE];
+    size_t processed_len = APP_OUT_BUFFER_SIZE;
+
+    iboot_file_pos_t iboot_pos[APP_OUT_IBOOT_POS_CNT];
+    size_t iboot_pos_cnt = APP_OUT_IBOOT_POS_CNT;
+
+    uint16_t offs[DRIVER_MAX_BUFFER_SIZE];
+    size_t offs_cnt = DRIVER_MAX_BUFFER_SIZE;
+
+    /* lolcat & iBoot filters need XXX */
     if (config.filter_lolcat || config.filter_iboot) {
-        for (size_t i = 0; i < length; i++) {
-            char c = buffer[i];
+        uint16_t *_offs = NULL;
+        size_t *_offs_cnt = NULL;
 
-            /*
-             * iBoot filter doesn't write output on its' own,
-             * and yet we still have to push characters one by one
-             * to be able to insert iBoot filenames appropriately
-             */
-            if (config.filter_iboot) {
-                iboot_push_char(STDOUT_FILENO, c);
-            }
+        if (config.filter_iboot) {
+            REQUIRE_NOERR(iboot_push_data(in_buf, in_len, iboot_pos, &iboot_pos_cnt), fail);
+            _offs = offs;
+            _offs_cnt = &offs_cnt;
+        }
 
-            /* lolcat writes on its' own */
+        if (config.filter_lolcat) {
+            REQUIRE_NOERR(lolcat_push_data(in_buf, in_len, processed, &processed_len, _offs, _offs_cnt), fail);
+            buf = processed;
+            len = processed_len;
+        }
+    }
+
+    if (config.filter_iboot && iboot_pos_cnt) {
+        off_t buf_off = 0;
+
+        for (size_t i = 0; i < iboot_pos_cnt; i++) {
+            iboot_file_pos_t *curr = &iboot_pos[i];
+            uint16_t curr_char_off = curr->off;
+
             if (config.filter_lolcat) {
-                lolcat_print_char(STDOUT_FILENO, c);
-            } else {
-                write(STDOUT_FILENO, &c, sizeof(c));
+                curr_char_off = offs[curr_char_off];
             }
+
+            REQUIRE(buf_off + curr_char_off <= len, fail);
+
+            write(STDOUT_FILENO, buf + buf_off, curr_char_off);
+            buf_off += curr_char_off;
+
+            iboot_print_file(STDOUT_FILENO, curr);
         }
     } else {
-        write(STDOUT_FILENO, buffer, length);
+        write(STDOUT_FILENO, buf, len);
     }
 
     if (!config.logging_disabled) {
-        if (log_push(buffer, length) != 0) {
-            return -1;
-        }
+        REQUIRE_NOERR(log_push(in_buf, in_len), fail);
     }
 
     return 0;
+
+fail:
+    return -1;
 }
 
 static int app_handle_user_input(char c) {

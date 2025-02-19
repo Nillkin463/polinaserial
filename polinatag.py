@@ -139,7 +139,7 @@ def print_tag(name: str, comps: list[int], iteration: int, with_iter: bool = Fal
 
     result = base + ".".join(comps_enc[::-1])
 
-    if with_iter and iteration > 0:
+    if with_iter:
         result += "~%d" % (iteration + 1)
 
     if line_break:
