@@ -6,7 +6,7 @@
 
 int tty_get_attrs(int fd, struct termios *attrs) {
     if (tcgetattr(fd, attrs) != 0) {
-        ERROR("failed to get termios attributes from fd %d - %s", fd, strerror(errno));
+        ERROR("couldn't get termios attributes from fd %d - %s", fd, strerror(errno));
         return -1;
     }
 
@@ -15,7 +15,7 @@ int tty_get_attrs(int fd, struct termios *attrs) {
 
 int tty_set_attrs(int fd, struct termios *attrs) {
     if (tcsetattr(fd, TCSANOW, attrs) != 0) {
-        ERROR("failed to set termios attributes to fd %d - %s", fd, strerror(errno));
+        ERROR("couldn't set termios attributes to fd %d - %s", fd, strerror(errno));
         return -1;
     }
 

@@ -7,20 +7,17 @@ struct ll {
     struct ll *next;
 };
 
-typedef struct ll * ll_t;
+typedef struct ll ll_t;
 
-typedef void (*ll_destroy_callback_t)(ll_t element);
+typedef void (*ll_destroy_cb_t)(void *);
 
-void _ll_add_element(ll_t *head, ll_t element);
-void _ll_destroy(ll_t *head, ll_destroy_callback_t callback);
+void ll_add(ll_t **head, void *elem);
+void ll_destroy(ll_t **head, ll_destroy_cb_t cb);
 
-#define ll_add_element(head, element) _ll_add_element((ll_t *)head, (ll_t)element)
-#define ll_destroy(head, callback) _ll_destroy((ll_t *)head, (ll_destroy_callback_t)callback)
-
-#define ll_iterate(head, type, name, code) \
+#define ll_iterate(_head, _type, _name, _code) \
     do { \
-        for (type name = head; name; name = (type)((ll_t)name)->next) \
-            code \
+        for (_type _name = _head; _name != NULL; _name = (_type)((ll_t *)_name)->next) \
+            _code \
     } while (0);
 
 #endif

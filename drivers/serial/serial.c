@@ -15,15 +15,15 @@
 #include <app/misc.h>
 #include <app/tty.h>
 
+#include "menu/menu.h"
 #include "baudrate_presets.h"
 #include "config.h"
 #include "device.h"
-#include "menu.h"
 
 static struct {
     bool ready;
 
-    menu_serial_item_t *picked;
+    serial_dev_t *picked;
     char callout[PATH_MAX + 1];
 
     int dev_fd;
@@ -42,8 +42,8 @@ static int init(int argc, const char *argv[]) {
 
     ctx.dev_fd = -1;
 
-    if (menu_find_devices() != 0) {
-        ERROR("failed to initialize menu");
+    if (serial_find_devices() != 0) {
+        ERROR("couldn't initialize menu");
         goto out;
     }
 
@@ -64,9 +64,9 @@ static int preflight() {
             goto out;
         }
 
-        MENU_STR_FROM_CFSTR_PREALLOC(ctx.callout, ctx.picked->callout_device, sizeof(ctx.callout));
+        strlcpy(ctx.callout, ctx.picked->callout, sizeof(ctx.callout));
     } else {
-        ctx.picked = menu_find_by_callout(config.device);
+        ctx.picked = serial_dev_find_by_callout(config.device);
         strlcpy(ctx.callout, config.device, strlen(config.device));
     }
 
@@ -191,7 +191,7 @@ static int quiesce() {
         close_fd();
     }
 
-    menu_destroy();
+    serial_dev_list_destroy();
 
     memset(&ctx, 0, sizeof(ctx));
 
@@ -205,7 +205,7 @@ static void log_name(char name[], size_t len) {
     }
 
     if (ctx.picked) {
-        MENU_STR_FROM_CFSTR_PREALLOC(name, ctx.picked->tty_name, len);
+        strlcpy(name, ctx.picked->tty_name, len);
     } else {
         strlcpy(name, last_path_component(ctx.callout), len);
     }

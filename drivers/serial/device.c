@@ -27,7 +27,7 @@ int device_open_with_callout(const char *callout) {
 
 int device_set_speed(int fd, speed_t speed) {
     if (ioctl(fd, IOSSIOSPEED, &speed) == -1) {
-        ERROR("failed to set speed - %s", strerror(errno));
+        ERROR("couldn't set speed - %s", strerror(errno));
         return -1;
     }
 

@@ -120,7 +120,7 @@ int log_init(const char *dev_name) {
     }
 
     if (mkdir_recursive(ctx.path) != 0) {
-        ERROR("failed to create logging folder");
+        ERROR("couldn't create logging folder");
         return -1;
     }
 
@@ -148,7 +148,7 @@ int log_init(const char *dev_name) {
     }
 
     if ((ctx.fd = open(ctx.path, O_WRONLY | O_APPEND | O_CREAT, 0644)) < 0) {
-        ERROR("failed to create logging file");
+        ERROR("couldn't create logging file");
         return -1;
     }
 

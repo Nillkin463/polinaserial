@@ -1,33 +1,38 @@
 #include <app/ll.h>
 
-void _ll_add_element(ll_t *head, ll_t element) {
+void ll_add(ll_t **head, void *elem) {
     if (*head) {
-        ll_t last = *head;
+        ll_t *last = NULL;
 
-        ll_iterate(*head, ll_t, curr, {
-            last = curr;
+        ll_iterate(*head, ll_t *, curr, {
+            if (!curr->next) {
+                last = curr;
+            }
         });
 
-        last->next = element;
+        if (!last) {
+            last = *head;
+        }
+
+        last->next = elem;
     } else {
-        *head = element;
+        *head = elem;
     }
 }
 
-void _ll_destroy(ll_t *head, ll_destroy_callback_t cb) {
-    ll_t curr = *head;
-
-    while (curr) {
-        ll_t next = curr->next;
-
+void ll_destroy(ll_t **head, ll_destroy_cb_t cb) {
+    void *tmp = NULL;
+    ll_iterate(*head, ll_t *, curr, {
         if (cb) {
             cb(curr);
         }
 
+        tmp = curr->next;
+
         free(curr);
-        
-        curr = next;
-    }
+
+        curr = (ll_t *)&tmp;
+    });
 
     *head = NULL;
 }

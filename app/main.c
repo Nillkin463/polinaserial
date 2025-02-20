@@ -245,7 +245,7 @@ static void version() {
         tag[size] = '\0';
         INFO("%s", tag);
     } else {
-        WARNING("failed to get embedded build tag");
+        WARNING("couldn't get embedded build tag");
         INFO(PRODUCT_NAME "-???");
     }
 
