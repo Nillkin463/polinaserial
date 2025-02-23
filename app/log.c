@@ -166,10 +166,10 @@ void log_queisce() {
         flush_event_t ev_type = {true, ctx.curr_buf, true};
         event_signal(&ctx.flush_event, *((uint64_t *)&ev_type));
         pthread_join(ctx.thr, NULL);
-    }
 
-    if (ctx.fd != -1) {
-        close(ctx.fd);
+        if (ctx.fd != -1) {
+            close(ctx.fd);
+        }
     }
 
     if (!ctx.started) {

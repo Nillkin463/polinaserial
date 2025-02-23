@@ -20,7 +20,7 @@ MACOSX_MIN_VERSION := -mmacosx-version-min=10.7
 BUILD_TAG_DB := polinaserial_tag_db.json
 BUILD_TAG_FILE := .tag
 
-$(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) -i > $(BUILD_TAG_FILE))
+$(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) > $(BUILD_TAG_FILE))
 
 CFLAGS := $(ARCHS)
 CFLAGS += $(MACOSX_MIN_VERSION)
@@ -41,6 +41,8 @@ STYLE ?= RELEASE
 ifeq ($(STYLE),ASAN)
 	CFLAGS += -fsanitize=address
 	LDFLAGS += -fsanitize=address
+	CFLAGS += -gfull
+	LDFLAGS += -gfull
 else ifeq ($(STYLE),PROFILING)
 	CFLAGS += -gfull
 	LDFLAGS += -gfull

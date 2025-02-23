@@ -2,6 +2,7 @@ LOCAL_DIR := $(GET_LOCAL_DIR)
 
 OBJECTS += \
 	$(CURRENT_ROOT)/$(LOCAL_DIR)/main.o \
+	$(CURRENT_ROOT)/$(LOCAL_DIR)/term.o \
 	$(CURRENT_ROOT)/$(LOCAL_DIR)/config.o \
 	$(CURRENT_ROOT)/$(LOCAL_DIR)/event.o \
 	$(CURRENT_ROOT)/$(LOCAL_DIR)/tty.o \

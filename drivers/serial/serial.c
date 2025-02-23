@@ -42,11 +42,6 @@ static int init(int argc, const char *argv[]) {
 
     ctx.dev_fd = -1;
 
-    if (serial_find_devices() != 0) {
-        ERROR("couldn't initialize menu");
-        goto out;
-    }
-
     REQUIRE_NOERR(serial_config_load(argc, argv, &config), out);
 
     ret = 0;
@@ -66,8 +61,13 @@ static int preflight() {
 
         strlcpy(ctx.callout, ctx.picked->callout, sizeof(ctx.callout));
     } else {
+        if (serial_find_devices() != 0) {
+            ERROR("couldn't look up serial devices");
+            goto out;
+        }
+
         ctx.picked = serial_dev_find_by_callout(config.device);
-        strlcpy(ctx.callout, config.device, strlen(config.device));
+        strlcpy(ctx.callout, config.device, strlen(config.device) + 1);
     }
 
     ctx.ready = true;

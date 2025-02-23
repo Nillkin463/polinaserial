@@ -13,6 +13,7 @@
 #include <app/config.h>
 #include <app/driver.h>
 #include <app/event.h>
+#include <app/term.h>
 #include <app/misc.h>
 #include <app/tty.h>
 #include "lolcat.h"
@@ -27,7 +28,6 @@ static app_config_t config = { 0 };
 
 static struct {
     const driver_t *driver;
-    struct termios old_attrs;
     event_t event;
 } ctx = { 0 };
 
@@ -61,10 +61,11 @@ find:
     return 0;
 }
 
-static int app_tty_set_raw() {
+static int app_term_set_raw() {
+    int ret = -1;
     struct termios new_attrs = { 0 };
-    memcpy(&new_attrs, &ctx.old_attrs, sizeof(new_attrs));
 
+    REQUIRE_NOERR(tty_get_attrs(STDIN_FILENO, &new_attrs), out);
     cfmakeraw(&new_attrs);
 
     if (config.filter_return) {
@@ -75,7 +76,11 @@ static int app_tty_set_raw() {
     new_attrs.c_cc[VTIME] = 1;
     new_attrs.c_cc[VMIN] = 0;
 
-    return tty_set_attrs(STDIN_FILENO, &new_attrs);
+    REQUIRE_NOERR(tty_set_attrs(STDIN_FILENO, &new_attrs), out);
+    ret = 0;
+
+out:
+    return ret;
 }
 
 int app_event_signal(app_event_t event) {
@@ -236,19 +241,35 @@ out:
     return NULL;
 }
 
-static void version() {
-    unsigned long size;
-    uint8_t *data = getsectiondata(dlsym(RTLD_MAIN_ONLY, "_mh_execute_header"), "__TEXT", "__build_tag", &size);
-    if (data) {
-        char tag[size + 1];
-        memcpy(tag, data, size);
-        tag[size] = '\0';
-        INFO("%s", tag);
-    } else {
-        WARNING("couldn't get embedded build tag");
-        INFO(PRODUCT_NAME "-???");
+void app_config_print() {
+    ctx.driver->config_print();
+    app_config_print_internal(&config);
+}
+
+static char *__get_tag() {
+    static char *tag;
+
+    if (tag) {
+        return tag;
     }
 
+    unsigned long size;
+    char *data = (char *)getsectiondata(dlsym(RTLD_MAIN_ONLY, "_mh_execute_header"), "__TEXT", "__build_tag", &size);
+    if (!data) {
+        WARNING("couldn't get embedded build tag");
+        data = PRODUCT_NAME "-???";
+        size = sizeof(PRODUCT_NAME "-???");
+    }
+
+    tag = malloc(size + 1);
+    memcpy(tag, data, size);
+    tag[size] = '\0';
+
+    return tag;
+}
+
+void app_version() {
+    INFO("%s", __get_tag());
     INFO("made by john (@nyan_satan)");
     printf("\n");
 }
@@ -284,10 +305,12 @@ static void help(const char *program_name) {
 
 int main(int argc, const char *argv[]) {    
     int ret = -1;
-    bool tty_inited = false;
+
+    app_term_scroll();
+    app_term_clear_page();
 
     /* print version */
-    version();
+    app_version();
 
     /* getting driver & advancing args if needed */
     if (app_get_driver(&ctx.driver, &argc, &argv) != 0) {
@@ -300,17 +323,17 @@ int main(int argc, const char *argv[]) {
         return -1;
     }
 
-    /* initialize app event struct */
-    event_init(&ctx.event);
-
     /* initialize selected driver */
     REQUIRE_NOERR(ctx.driver->init(argc, argv), out);
 
-    /* print driver configuration */
-    ctx.driver->config_print();
+    /* XXX */
+    app_config_print();
 
-    /* print app configuration */
-    app_config_print(&config);
+    /* save TTY's configuration to restore it later */
+    REQUIRE_NOERR(app_term_save_attrs(), out);
+
+    /* set terminal to raw mode */
+    REQUIRE_NOERR(app_term_set_raw(), out);
 
     /* driver preflight - XXX */
     REQUIRE_NOERR(ctx.driver->preflight(), out);
@@ -328,12 +351,8 @@ int main(int argc, const char *argv[]) {
         lolcat_init();
     }
 
-    /* save TTY's configuration to restore it later */
-    REQUIRE_NOERR(tty_get_attrs(STDIN_FILENO, &ctx.old_attrs), out);
-
-    /* set terminal to raw mode */
-    REQUIRE_NOERR(app_tty_set_raw(), out);
-    tty_inited = true;
+    /* initialize app event struct */
+    event_init(&ctx.event);
 
     /* starting the driver */
     REQUIRE_NOERR(ctx.driver->start(app_out_callback), out);
@@ -360,11 +379,9 @@ out:
     }
 
     /* restore terminal config back to original state */
-    if (tty_inited) {
-        if (tty_set_attrs(STDIN_FILENO, &ctx.old_attrs) != 0) {
-            ERROR("could NOT restore TTY's attributes - you might want to kill this terminal\r");
-            ret = -1;
-        }
+    if (app_term_restore_attrs() != 0) {
+        ERROR("could NOT restore terminal attributes - you might want to kill it\r");
+        ret = -1;
     }
 
     return ret;

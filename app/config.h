@@ -19,6 +19,6 @@ typedef struct {
 } app_config_t;
 
 int  app_config_load(int argc, const char *argv[], app_config_t *config);
-void app_config_print(app_config_t *config);
+void app_config_print_internal(app_config_t *config);
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 #define STR_IMPL_(x)    #x
@@ -17,8 +18,8 @@
 #define ANSI_RESET   "0"
 #define ANSI_END     "m"
 
-#define INFO_NO_BREAK(__format, ...)    printf(ANSI_START ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
 #define INFO(__format, ...)             printf(ANSI_START ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END "\r\n", ##__VA_ARGS__);
+#define INFO_NO_BREAK(__format, ...)    printf(ANSI_START ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
 
 #define SUCCESS(__format, ...)              printf(ANSI_START ANSI_GREEN ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END "\r\n", ##__VA_ARGS__);
 #define SUCCESS_NO_BREAK(__format, ...)     printf(ANSI_START ANSI_GREEN ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
@@ -29,6 +30,17 @@
 #define ERROR_NO_BREAK(__format, ...)   printf(ANSI_START ANSI_RED ANSI_DELIM ANSI_BOLD ANSI_END __format ANSI_START ANSI_RESET ANSI_END, ##__VA_ARGS__);
 
 #define CONST_STRLEN(_s)    (sizeof(_s) - 1)
+
+int mkdir_recursive(const char *path);
+int parse_numeric_arg(const char *arg, int base, uint64_t *val, uint64_t min_val, uint64_t max_val);
+const char *bool_on_off(bool status);
+const char *last_path_component(const char *path);
+char *itoa(int i, char *a, size_t l);
+
+static inline __attribute__((noreturn)) void panic(const char *reason) {
+    ERROR("%s", reason);
+    abort();
+}
 
 #define REQUIRE(_cond, _label) \
     if (!(_cond)) { \
@@ -42,14 +54,8 @@
 
 #define REQUIRE_PANIC(_cond) \
     if (!(_cond)) { \
-        ERROR("REQUIRE_PANIC - " #_cond); \
-        abort(); \
+        panic("REQUIRE_PANIC - " #_cond); \
     }
 
-int mkdir_recursive(const char *path);
-int parse_numeric_arg(const char *arg, int base, uint64_t *val, uint64_t min_val, uint64_t max_val);
-const char *bool_on_off(bool status);
-const char *last_path_component(const char *path);
-char *itoa(int i, char *a, size_t l);
 
 #endif

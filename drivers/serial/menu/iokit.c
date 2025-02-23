@@ -2,14 +2,13 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/USBSpec.h>
 
+#include <app/ll.h>
 #include <app/misc.h>
 #include "menu.h"
+#include "iokit.h"
 
-#define STR_FROM_CFSTR_ALLOC(_target, _cftsr) \
-    CFIndex _len_##_cftsr = CFStringGetMaximumSizeForEncoding(CFStringGetLength(_cftsr), kCFStringEncodingUTF8); \
-    REQUIRE_PANIC(_len_##_cftsr != kCFNotFound); \
-    REQUIRE_PANIC((_target = malloc(_len_##_cftsr))); \
-    REQUIRE_PANIC(CFStringGetCString(_cftsr, _target, _len_##_cftsr, kCFStringEncodingUTF8));
+#define STR_FROM_CFSTR(_cftsr, _target, _len) \
+    REQUIRE_PANIC(CFStringGetCString(_cftsr, _target, _len, kCFStringEncodingUTF8));
 
 #define __cf_release(_ref) \
     if (_ref) { \
@@ -27,7 +26,7 @@ static io_registry_entry_t iokit_get_parent_with_class(io_service_t service, con
     io_name_t name;
     io_registry_entry_t prev_parent = IO_OBJECT_NULL;
     io_registry_entry_t parent = service;
-    
+
     do {
         if (parent != service) {
             prev_parent = parent;
@@ -52,8 +51,8 @@ static io_registry_entry_t iokit_get_parent_with_class(io_service_t service, con
     return parent;
 }
 
-static serial_dev_t *iokit_serial_dev_from_service(io_service_t service) {
-    serial_dev_t *device = NULL;
+int iokit_serial_dev_from_service(io_service_t service, serial_dev_t *device) {
+    int ret = -1;
     CFMutableDictionaryRef properties = NULL;
     CFStringRef tty_name = NULL;
     CFStringRef tty_suffix = NULL;
@@ -98,41 +97,131 @@ static serial_dev_t *iokit_serial_dev_from_service(io_service_t service) {
         }
     }
 
-    device = calloc(sizeof(serial_dev_t), 1);
-    if (!device) {
-        ERROR("couldn't allocate memory");
-        goto out;
-    }
-
-    STR_FROM_CFSTR_ALLOC(device->tty_name, tty_name);
-    __cf_release(tty_name);
+    STR_FROM_CFSTR(tty_name, device->tty_name, sizeof(device->tty_name));
 
     if (CFStringGetLength(tty_suffix) > 0) {
-        STR_FROM_CFSTR_ALLOC(device->tty_suffix, tty_suffix);
+        STR_FROM_CFSTR(tty_suffix, device->tty_suffix, sizeof(device->tty_suffix));
     } else {
-        device->tty_suffix = NULL;
+        *device->tty_suffix = '\0';
     }
 
-    __cf_release(tty_suffix);
-
-    STR_FROM_CFSTR_ALLOC(device->callout, callout_device);
-    __cf_release(callout_device);
+    STR_FROM_CFSTR(callout_device, device->callout, sizeof(device->callout));
 
     if (usb_name) {
-        STR_FROM_CFSTR_ALLOC(device->usb_name, usb_name);
-        __cf_release(usb_name);
+        STR_FROM_CFSTR(usb_name, device->usb_name, sizeof(device->usb_name));
     }
 
 out:
-    // __cf_release(properties);
+    __cf_release(properties);
     __cf_release(usb_parent_properties);
     __iokit_release(usb_parent);
 
-    return device;
+    return ret;
 }
 
-serial_dev_t *iokit_serial_find_devices() {
-    serial_dev_t *devices = NULL;
+static void iokit_serial_device_added_cb(void *ref, io_iterator_t iterator) {
+    iokit_event_cb_t cb = ref;
+    io_object_t object;
+    uint64_t id;
+
+    while ((object = IOIteratorNext(iterator))) {
+        IORegistryEntryGetRegistryEntryID(object, &id);
+        cb(object, id, true);
+        __iokit_release(object);
+    };
+}
+
+static void iokit_serial_device_removed_cb(void *ref, io_iterator_t iterator) {
+    iokit_event_cb_t cb = ref;
+    io_object_t object;
+    uint64_t id;
+
+    while ((object = IOIteratorNext(iterator))) {
+        IORegistryEntryGetRegistryEntryID(object, &id);
+        cb(object, id, false);
+        __iokit_release(object);
+    };
+}
+
+static IONotificationPortRef notification_port = NULL;
+static IONotificationPortRef termination_notification_port = NULL;
+
+int iokit_register_serial_devices_events(iokit_event_cb_t cb) {
+    CFRunLoopRef notification_run_loop = CFRunLoopGetCurrent();
+    
+    CFMutableDictionaryRef matching_dict = IOServiceMatching("IOSerialBSDClient");;
+
+    mach_port_t master_port = MACH_PORT_NULL;
+    IOMasterPort(MACH_PORT_NULL, &master_port);
+
+    notification_port = IONotificationPortCreate(master_port);
+    CFRunLoopAddSource(
+        notification_run_loop,
+        IONotificationPortGetRunLoopSource(notification_port),
+        kCFRunLoopDefaultMode
+    );
+
+    io_iterator_t iterator = IO_OBJECT_NULL;
+
+    CFRetain(matching_dict);
+    kern_return_t ret = IOServiceAddMatchingNotification(
+        notification_port,
+        kIOMatchedNotification,
+        matching_dict,
+        iokit_serial_device_added_cb,
+        cb,
+        &iterator
+    );
+    
+    if (ret != KERN_SUCCESS) {
+        ERROR("couldn't register add serial device notification");
+        goto fail;
+    }
+    
+    iokit_serial_device_added_cb(cb, iterator);
+    
+    termination_notification_port = IONotificationPortCreate(kIOMasterPortDefault);
+    CFRunLoopAddSource(
+        notification_run_loop,
+        IONotificationPortGetRunLoopSource(termination_notification_port),
+        kCFRunLoopDefaultMode
+    );
+    
+    CFRetain(matching_dict);
+    ret = IOServiceAddMatchingNotification(
+        termination_notification_port,
+        kIOTerminatedNotification,
+        matching_dict,
+        iokit_serial_device_removed_cb,
+        cb,
+        &iterator
+    );
+    
+    if (ret != KERN_SUCCESS) {
+        ERROR("couldn't register remove serial device notification");
+        goto fail;
+    }
+    
+    iokit_serial_device_removed_cb(cb, iterator);
+    
+    __cf_release(matching_dict);
+    
+    return 0;
+    
+fail:
+    return -1;
+}
+
+void iokit_unregister_serial_devices_events() {
+    IONotificationPortDestroy(notification_port);
+    IONotificationPortDestroy(termination_notification_port);
+
+    notification_port = NULL;
+    termination_notification_port = NULL;
+}
+
+serial_dev_list_t *iokit_serial_find_devices() {
+    serial_dev_list_t *devices = NULL;
     CFMutableDictionaryRef matching_dict = NULL;
     io_iterator_t iterator = IO_OBJECT_NULL;
     io_service_t service = IO_OBJECT_NULL;
@@ -149,12 +238,14 @@ serial_dev_t *iokit_serial_find_devices() {
     }
 
     while ((service = IOIteratorNext(iterator))) {
-        serial_dev_t *item = iokit_serial_dev_from_service(service);
-        __iokit_release(service);
-
+        serial_dev_list_t *item = calloc(sizeof(*item), 1);
         if (!item) {
+            ERROR("out of memory?!");
             goto fail;
         }
+
+        iokit_serial_dev_from_service(service, &item->dev);
+        __iokit_release(service);
 
         ll_add((ll_t **)&devices, item);
     }
@@ -162,10 +253,9 @@ serial_dev_t *iokit_serial_find_devices() {
     goto out;
 
 fail:
-    ll_destroy((ll_t **)&devices, serial_dev_destroy);
+    ll_destroy((ll_t **)&devices, NULL);
 
 out:
-    // __cf_release(matching_dict);
     __iokit_release(iterator);
     __iokit_release(service);
 

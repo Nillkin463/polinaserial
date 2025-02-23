@@ -96,7 +96,7 @@ int app_config_load(int argc, const char *argv[], app_config_t *config) {
     return 0;
 }
 
-void app_config_print(app_config_t *config) {
+void app_config_print_internal(app_config_t *config) {
     INFO_NO_BREAK("return: ");
     printf("%s", bool_on_off(config->filter_return));
 
