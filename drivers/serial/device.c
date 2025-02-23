@@ -96,5 +96,4 @@ void tty_set_attrs_from_config(struct termios *attrs, serial_config_t *config) {
             attrs->c_iflag |= (IXON | IXOFF);
             break;
     }
-
 }
