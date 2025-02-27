@@ -124,30 +124,30 @@ static void draw() {
     int index = 0;
     SLOT_ITERATE(_curr, {
         if (index == 0) {
-            INFO("\nSelect a device from the list below (or Ctrl+C to exit):");
+            POLINA_INFO("\nSelect a device from the list below (or Ctrl+C to exit):");
         }
 
         serial_dev_t *curr = &_curr->dev;
 
-        printf("\t(%c) ", index + START_CHAR);
+        POLINA_MISC_NO_BREAK("\t(%c) ", index + START_CHAR);
 
         if (*curr->usb_name) {
-            INFO_NO_BREAK("%s", curr->usb_name);
+            POLINA_INFO_NO_BREAK("%s", curr->usb_name);
 
             if (*curr->tty_suffix) {
-                INFO_NO_BREAK("-%s", curr->tty_suffix);
+                POLINA_INFO_NO_BREAK("-%s", curr->tty_suffix);
             }
 
-            printf(" on ");
+            POLINA_MISC_NO_BREAK(" on ");
         }
 
-        printf("%s\n", curr->callout);
+        POLINA_MISC("%s", curr->callout);
 
         index++;
     });
 
     if (index == 0) {
-        INFO("\nwaiting for devices, press Ctrl+C to exit...\n");
+        POLINA_INFO("\nwaiting for devices, press Ctrl+C to exit...\n");
     }
 
     spinner(false);

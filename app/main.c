@@ -54,7 +54,7 @@ find:
     });
 
     if (!*driver) {
-        ERROR("driver \"%s\" is not known", driver_name);
+        POLINA_ERROR("driver \"%s\" is not known", driver_name);
         return -1;
     }
 
@@ -88,24 +88,24 @@ int app_event_signal(app_event_t event) {
     return 0;
 }
 
-static void app_event_loop() {
+static app_event_t app_event_loop() {
     app_event_t event = event_wait(&ctx.event);
 
-    printf("\n\r");
+    POLINA_LINE_BREAK();
 
     switch (event) {
         case APP_EVENT_DISCONNECT_DEVICE: {
-            INFO("[disconnected - device disappeared]");
+            POLINA_INFO("[disconnected - device disappeared]");
             break;
         }
 
         case APP_EVENT_DISCONNECT_USER: {
-            INFO("[disconnected]");
+            POLINA_INFO("[disconnected]");
             break;
         }
 
         case APP_EVENT_ERROR: {
-            ERROR("[internal error]");
+            POLINA_ERROR("[internal error]");
             break;
         }
 
@@ -114,6 +114,8 @@ static void app_event_loop() {
     }
 
     event_unsignal(&ctx.event);
+
+    return event;
 }
 
 #define APP_OUT_BUFFER_SIZE     (DRIVER_MAX_BUFFER_SIZE * 8 + 32)
@@ -191,8 +193,8 @@ static int app_handle_user_input(char c) {
         return -1;
     }
 
-    if (config.wait) {
-        usleep(config.wait);
+    if (config.delay) {
+        usleep(config.delay);
     }
 
     return 0;
@@ -204,7 +206,7 @@ static void *app_user_input_thread(void *arg) {
 
     int kq = kqueue();
     if (kq == -1) {
-        ERROR("kqueue() failed");
+        POLINA_ERROR("kqueue() failed");
         event = APP_EVENT_ERROR;
         goto out;
     }
@@ -256,7 +258,7 @@ static char *__get_tag() {
     unsigned long size;
     char *data = (char *)getsectiondata(dlsym(RTLD_MAIN_ONLY, "_mh_execute_header"), "__TEXT", "__build_tag", &size);
     if (!data) {
-        WARNING("couldn't get embedded build tag");
+        POLINA_WARNING("couldn't get embedded build tag");
         data = PRODUCT_NAME "-???";
         size = sizeof(PRODUCT_NAME "-???");
     }
@@ -269,9 +271,9 @@ static char *__get_tag() {
 }
 
 void app_version() {
-    INFO("%s", __get_tag());
-    INFO("made by john (@nyan_satan)");
-    printf("\n");
+    POLINA_INFO("%s", __get_tag());
+    POLINA_INFO("made by john (@nyan_satan)");
+    POLINA_LINE_BREAK();
 }
 
 static void help(const char *program_name) {
@@ -279,7 +281,7 @@ static void help(const char *program_name) {
     printf("\n");
 
     DRIVER_ITERATE({
-        INFO_NO_BREAK("%s", curr->name);
+        POLINA_INFO_NO_BREAK("%s", curr->name);
         printf(":\n");
         curr->help();
         printf("\n");
@@ -292,8 +294,9 @@ static void help(const char *program_name) {
     printf("\n");
 
     printf("available miscallenous options:\n");
-    printf("\t-w <usecs>\twait period in microseconds after each inputted character,\n");
-    printf("\t\t\tdefault - 0 (no wait), 20000 is good for XNU\n");
+    printf("\t-r\ttry to reconnect in case of connection loss\n");
+    printf("\t-u <usecs>\tdelay period in microseconds after each inputted character,\n");
+    printf("\t\t\tdefault - 0 (no delay), 20000 is good for XNU\n");
     printf("\t-l\tlolcat the output, good for screenshots\n");
     printf("\t-g\tdisable logging\n");
     printf("\t-h\tshow this help menu\n");
@@ -358,16 +361,26 @@ int main(int argc, const char *argv[]) {
     REQUIRE_NOERR(ctx.driver->start(app_out_callback), out);
 
     /* if we reach this point... */
-    INFO("\n[connected - press CTRL+] to exit]");
+    POLINA_INFO("\n[connected - press CTRL+] to exit]");
 
     /* create user input handler thread */
     pthread_t user_input_thr = { 0 };
     pthread_create(&user_input_thr, NULL, app_user_input_thread, NULL);
 
-    /* this will block until we disconnect or something errors out */
-    app_event_loop();
+    while (true) {
+        /* this will block until we disconnect or something errors out */
+        app_event_t event = app_event_loop();
 
-    ret = ctx.event.value == APP_EVENT_ERROR ? -1 : 0;
+        if (config.retry && event == APP_EVENT_DISCONNECT_DEVICE) {
+            POLINA_WARNING("[trying to reconnect]");
+            REQUIRE_NOERR(ctx.driver->restart(), out);
+            POLINA_SUCCESS("[reconnected]");
+        } else {
+            break;
+        }
+    }
+
+    ret = event == APP_EVENT_ERROR ? -1 : 0;
 
 out:
     /* shutting down the driver */
@@ -380,7 +393,7 @@ out:
 
     /* restore terminal config back to original state */
     if (app_term_restore_attrs() != 0) {
-        ERROR("could NOT restore terminal attributes - you might want to kill it\r");
+        POLINA_ERROR("could NOT restore terminal attributes - you might want to kill it");
         ret = -1;
     }
 

@@ -37,7 +37,7 @@ static io_registry_entry_t iokit_get_parent_with_class(io_service_t service, con
         }
 
         if (IOObjectGetClass(parent, name) != KERN_SUCCESS) {
-            WARNING("couldn't get IOObject name");
+            POLINA_WARNING("couldn't get IOObject name");
             __iokit_release(parent);
             return IO_OBJECT_NULL;
         }
@@ -62,25 +62,25 @@ int iokit_serial_dev_from_service(io_service_t service, serial_dev_t *device) {
     CFMutableDictionaryRef usb_parent_properties = NULL;
 
     if (IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, kNilOptions) != KERN_SUCCESS) {
-        ERROR("couldn't get IOService properties");
+        POLINA_ERROR("couldn't get IOService properties");
         goto out;
     }
 
     tty_name = CFDictionaryGetValue(properties, CFSTR("IOTTYDevice"));
     if (!tty_name) {
-        ERROR("couldn't get IOTTYDevice");
+        POLINA_ERROR("couldn't get IOTTYDevice");
         goto out;
     }
 
     tty_suffix = CFDictionaryGetValue(properties, CFSTR("IOTTYSuffix"));
     if (!tty_suffix) {
-        ERROR("couldn't get IOTTYSuffix");
+        POLINA_ERROR("couldn't get IOTTYSuffix");
         goto out;
     }
 
     callout_device = CFDictionaryGetValue(properties, CFSTR("IOCalloutDevice"));
     if (!callout_device) {
-        ERROR("couldn't get IOCalloutDevice");
+        POLINA_ERROR("couldn't get IOCalloutDevice");
         goto out;
     }
 
@@ -93,7 +93,7 @@ int iokit_serial_dev_from_service(io_service_t service, serial_dev_t *device) {
         if (IORegistryEntryCreateCFProperties(usb_parent, &usb_parent_properties, kCFAllocatorDefault, kNilOptions) == KERN_SUCCESS) {
             usb_name = CFDictionaryGetValue(usb_parent_properties, CFSTR(kUSBProductString));
         } else {
-            WARNING("couldn't get USB IOService properties");
+            POLINA_WARNING("couldn't get USB IOService properties");
         }
     }
 
@@ -110,6 +110,8 @@ int iokit_serial_dev_from_service(io_service_t service, serial_dev_t *device) {
     if (usb_name) {
         STR_FROM_CFSTR(usb_name, device->usb_name, sizeof(device->usb_name));
     }
+
+    ret = 0;
 
 out:
     __cf_release(properties);
@@ -174,7 +176,7 @@ int iokit_register_serial_devices_events(iokit_event_cb_t cb) {
     );
     
     if (ret != KERN_SUCCESS) {
-        ERROR("couldn't register add serial device notification");
+        POLINA_ERROR("couldn't register add serial device notification");
         goto fail;
     }
     
@@ -198,7 +200,7 @@ int iokit_register_serial_devices_events(iokit_event_cb_t cb) {
     );
     
     if (ret != KERN_SUCCESS) {
-        ERROR("couldn't register remove serial device notification");
+        POLINA_ERROR("couldn't register remove serial device notification");
         goto fail;
     }
     
@@ -228,19 +230,19 @@ serial_dev_list_t *iokit_serial_find_devices() {
 
     matching_dict = IOServiceMatching("IOSerialBSDClient");
     if (!matching_dict) {
-        ERROR("couldn't get matching dictionary from IOKit");
+        POLINA_ERROR("couldn't get matching dictionary from IOKit");
         goto fail;
     }
 
     if (IOServiceGetMatchingServices(kIOMasterPortDefault, matching_dict, &iterator) != KERN_SUCCESS) {
-        ERROR("couldn't get matching services");
+        POLINA_ERROR("couldn't get matching services");
         goto fail;
     }
 
     while ((service = IOIteratorNext(iterator))) {
         serial_dev_list_t *item = calloc(sizeof(*item), 1);
         if (!item) {
-            ERROR("out of memory?!");
+            POLINA_ERROR("out of memory?!");
             goto fail;
         }
 

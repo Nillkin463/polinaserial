@@ -44,7 +44,7 @@ static struct termios saved_attrs = { 0 };
 
 int app_term_save_attrs() {
     if (attrs_were_saved) {
-        ERROR("trying to save terminal attributes again");
+        POLINA_ERROR("trying to save terminal attributes again");
         return -1;
     }
 
@@ -55,7 +55,7 @@ int app_term_save_attrs() {
     return 0;
 
 fail:
-    ERROR("couldn't save terminal attributes");
+    POLINA_ERROR("couldn't save terminal attributes");
     return -1;
 }
 

@@ -9,7 +9,7 @@
 #include "baudrate_presets.h"
 
 #if WITH_UART_EXTRA
-    #define ARGUMENTS   ":d:b:c:s:p:f:nkil"
+    #define ARGUMENTS   ":d:b:c:t:p:f:nkil"
 #else
     #define ARGUMENTS   ":d:b:nkil"
 #endif
@@ -92,7 +92,7 @@ int serial_config_load(int argc, const char *argv[], serial_config_t *config) {
                 break;
             }
 
-            case 's': {
+            case 't': {
                 uint64_t stop_bits;
 
                 if (parse_numeric_arg(optarg, 10, &stop_bits, STOP_BITS_MIN, STOP_BITS_MAX) != 0){
@@ -136,12 +136,12 @@ int serial_config_load(int argc, const char *argv[], serial_config_t *config) {
             }
 #endif
             case ':': {
-                WARNING("-%c needs argument", optopt);
+                POLINA_WARNING("-%c needs argument", optopt);
                 return -1;
             }
             
             case '?': {
-                WARNING("unknown argument -%c", optopt);
+                POLINA_WARNING("unknown argument -%c", optopt);
                 return -1;
             }
 
@@ -154,67 +154,66 @@ int serial_config_load(int argc, const char *argv[], serial_config_t *config) {
 
 help_needed:
     if (help_reason) {
-        WARNING("%s", help_reason);
+        POLINA_WARNING("%s", help_reason);
     }
 
     return -1;
 }
 
-
 void serial_config_print(serial_config_t *config) {
-    INFO_NO_BREAK("device: ");
+    POLINA_INFO_NO_BREAK("device: ");
     if (config->device) {
-        printf("%s", config->device);
+        POLINA_MISC_NO_BREAK("%s", config->device);
     } else {
-        printf("menu");
+        POLINA_MISC_NO_BREAK("menu");
     }
 
-    INFO_NO_BREAK(" baud: ");
-    printf("%d", config->baudrate);
+    POLINA_INFO_NO_BREAK(" baud: ");
+    POLINA_MISC_NO_BREAK("%d", config->baudrate);
 
-    INFO_NO_BREAK(" data: ");
-    printf("%d", config->data_bits);
+    POLINA_INFO_NO_BREAK(" data: ");
+    POLINA_MISC_NO_BREAK("%d", config->data_bits);
 
-    INFO_NO_BREAK(" stop: ");
-    printf("%d", config->stop_bits);
+    POLINA_INFO_NO_BREAK(" stop: ");
+    POLINA_MISC_NO_BREAK("%d", config->stop_bits);
 
-    INFO_NO_BREAK(" parity: ");
+    POLINA_INFO_NO_BREAK(" parity: ");
     switch (config->parity) {
         case PARITY_NONE:
-            printf("none");
+            POLINA_MISC_NO_BREAK("none");
             break;
 
         case PARITY_EVEN:
-            printf("even");
+            POLINA_MISC_NO_BREAK("even");
             break;
 
         case PARITY_ODD:
-            printf("odd");
+            POLINA_MISC_NO_BREAK("odd");
             break;
     }
 
-    INFO_NO_BREAK(" flow: ");
+    POLINA_INFO_NO_BREAK(" flow: ");
     switch (config->flow_control) {
         case FLOW_CONTROL_NONE:
-            printf("none");
+            POLINA_MISC_NO_BREAK("none");
             break;
 
         case FLOW_CONTROL_HW:
-            printf("hw");
+            POLINA_MISC_NO_BREAK("hw");
             break;
 
         case FLOW_CONTROL_SW:
-            printf("sw");
+            POLINA_MISC_NO_BREAK("sw");
             break;
     }
 
-    printf("\n");
+    POLINA_LINE_BREAK();
 }
 
 void serial_help() {
     printf("\t-d <device>\tpath to device (default - shows menu)\n");
     printf("\t-b <baudrate>\tbaudrate to use (default - ios/115200)\n");
-    printf("\n");
+    POLINA_LINE_BREAK();
     printf("\tavailable baudrate presets:\n");
 
     for (int i = 0; i < BAUDRATE_PRESET_COUNT; i++) {
@@ -222,11 +221,11 @@ void serial_help() {
         printf("\t\t%-12.12s- %s (%d)\n", curr->name, curr->description, curr->baudrate);
     }
 
-    printf("\n");
+    POLINA_LINE_BREAK();
 
 #if WITH_UART_EXTRA
     printf("\t-c <bits>\tdata bits - from 5 to 8 (default - 8)\n");
-    printf("\t-s <bits>\tstop bits - 1 or 2 (default - 1)\n");
+    printf("\t-t <bits>\tstop bits - 1 or 2 (default - 1)\n");
     printf("\t-p <parity>\tparity - none, even or odd (default - none)\n");
     printf("\t-f <control>\tflow control - none, sw or hw (default - none)\n");
 #else

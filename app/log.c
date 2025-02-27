@@ -105,22 +105,22 @@ int log_init(const char *dev_name) {
 
     const char *home_folder = getenv("HOME");
     if (!home_folder) {
-        ERROR("couldn't get $HOME");
+        POLINA_ERROR("couldn't get $HOME");
         return -1;
     }
 
     if (snprintf(ctx.path, sizeof(ctx.path), "%s/" LOGS_FOLDER, home_folder) >= sizeof(ctx.path)) {
-        ERROR("resulting folder path for logging is getting too big (?!)");
+        POLINA_ERROR("resulting folder path for logging is getting too big (?!)");
         return -1;
     }
 
     if (snprintf(ctx.path, sizeof(ctx.path), "%s/%s", ctx.path, dev_name) >= sizeof(ctx.path)) {
-        ERROR("resulting folder path for logging is getting too big (?!)");
+        POLINA_ERROR("resulting folder path for logging is getting too big (?!)");
         return -1;
     }
 
     if (mkdir_recursive(ctx.path) != 0) {
-        ERROR("couldn't create logging folder");
+        POLINA_ERROR("couldn't create logging folder");
         return -1;
     }
 
@@ -131,24 +131,24 @@ int log_init(const char *dev_name) {
     if (snprintf(filename, sizeof(filename), "%d-%02d-%02d_%02d-%02d-%02d.log",
         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec) >= sizeof(filename)) {
         
-        ERROR("resulting filename for logging is getting too big (?!)");
+        POLINA_ERROR("resulting filename for logging is getting too big (?!)");
         return -1;
     }
 
-    printf("\n");
-    INFO_NO_BREAK("Logging folder: ");
-    puts(ctx.path);
+    POLINA_LINE_BREAK();
+    POLINA_INFO_NO_BREAK("Logging folder: ");
+    POLINA_MISC("%s", ctx.path);
 
-    INFO_NO_BREAK("Logging file: ");
-    puts(filename);
+    POLINA_INFO_NO_BREAK("Logging file: ");
+    POLINA_MISC("%s", filename);
 
     if (snprintf(ctx.path, sizeof(ctx.path), "%s/%s", ctx.path, filename) >= sizeof(ctx.path)) {
-        ERROR("resulting path for logging is getting too big (?!)");
+        POLINA_ERROR("resulting path for logging is getting too big (?!)");
         return -1;
     }
 
     if ((ctx.fd = open(ctx.path, O_WRONLY | O_APPEND | O_CREAT, 0644)) < 0) {
-        ERROR("couldn't create logging file");
+        POLINA_ERROR("couldn't create logging file");
         return -1;
     }
 

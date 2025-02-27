@@ -15,7 +15,8 @@
 #include <app/misc.h>
 #include <app/tty.h>
 
-#include "menu/menu.h"
+#include "menu.h"
+#include "iokit.h"
 #include "baudrate_presets.h"
 #include "config.h"
 #include "device.h"
@@ -29,7 +30,10 @@ static struct {
     int dev_fd;
 
     struct termios old_attrs;
+    struct termios new_attrs;
     bool attrs_modified;
+
+    driver_event_cb_t out_cb;
 
     int kq;
     pthread_t loop_thr;
@@ -62,7 +66,7 @@ static int preflight() {
         strlcpy(ctx.callout, ctx.picked->callout, sizeof(ctx.callout));
     } else {
         if (serial_find_devices() != 0) {
-            ERROR("couldn't look up serial devices");
+            POLINA_ERROR("couldn't look up serial devices");
             goto out;
         }
 
@@ -87,7 +91,7 @@ static void *serial_loop(void *arg) {
 
     ctx.kq = kqueue();
     if (ctx.kq == -1) {
-        ERROR("kqueue() failed");
+        POLINA_ERROR("kqueue() failed");
         return NULL;
     }
 
@@ -150,13 +154,14 @@ static int start(driver_event_cb_t out_cb) {
     REQUIRE((ctx.dev_fd = device_open_with_callout(ctx.callout)) != -1, fail);
 
     REQUIRE_NOERR(tty_get_attrs(ctx.dev_fd, &ctx.old_attrs), fail);
-    memcpy(&new_attrs, &ctx.old_attrs, sizeof(struct termios));
+    memcpy(&ctx.new_attrs, &ctx.old_attrs, sizeof(struct termios));
 
-    tty_set_attrs_from_config(&new_attrs, &config);
+    tty_set_attrs_from_config(&ctx.new_attrs, &config);
 
-    REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &new_attrs), fail);
+    REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), fail);
     REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), fail);
 
+    ctx.out_cb = out_cb;
     ctx.attrs_modified = true;
 
     pthread_create(&ctx.loop_thr, NULL, serial_loop, out_cb);
@@ -168,6 +173,40 @@ fail:
     if (ctx.dev_fd != -1) {
         close_fd();
     }
+
+out:
+    return ret;
+}
+
+static void restart_cb(io_service_t service, uint64_t id, bool added) {
+    if (added) {
+        serial_dev_t dev = { 0 };
+        REQUIRE_NOERR(iokit_serial_dev_from_service(service, &dev), out);
+        if (strcmp(dev.callout, ctx.callout) == 0) {
+            CFRunLoopStop(CFRunLoopGetCurrent());
+        }
+    }
+
+out:
+    return;
+}
+
+static int restart() {
+    int ret = -1;
+
+    REQUIRE_NOERR(iokit_register_serial_devices_events(restart_cb), out);
+
+    CFRunLoopRun();
+
+    iokit_unregister_serial_devices_events();
+
+    REQUIRE((ctx.dev_fd = device_open_with_callout(ctx.callout)) != -1, out);
+    REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), out);
+    REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), out);
+
+    pthread_create(&ctx.loop_thr, NULL, serial_loop, ctx.out_cb);
+
+    ret = 0;
 
 out:
     return ret;
@@ -200,7 +239,7 @@ static int quiesce() {
 
 static void log_name(char name[], size_t len) {
     if (!ctx.ready) {
-        ERROR("serial driver uninitialized, but log_name() was called?!");
+        POLINA_ERROR("serial driver uninitialized, but log_name() was called?!");
         abort();
     }
 
@@ -215,4 +254,15 @@ static void config_print() {
     serial_config_print(&config);
 }
 
-DRIVER_ADD(uart, init, preflight, start, _write, quiesce, log_name, config_print, serial_help);
+DRIVER_ADD(
+    uart,
+    init,
+    preflight,
+    start,
+    restart,
+    _write,
+    quiesce,
+    log_name,
+    config_print,
+    serial_help
+);

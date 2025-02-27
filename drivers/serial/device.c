@@ -13,12 +13,12 @@
 int device_open_with_callout(const char *callout) {
     int fd = open(callout, O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
     if (fd < 0) {
-        ERROR("device %s is unavailable", callout);
+        POLINA_ERROR("device %s is unavailable", callout);
         return -1;
     }
 
     if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        ERROR("device %s is locked", callout);
+        POLINA_ERROR("device %s is locked", callout);
         return -1;
     }
 
@@ -27,7 +27,7 @@ int device_open_with_callout(const char *callout) {
 
 int device_set_speed(int fd, speed_t speed) {
     if (ioctl(fd, IOSSIOSPEED, &speed) == -1) {
-        ERROR("couldn't set speed - %s", strerror(errno));
+        POLINA_ERROR("couldn't set speed - %s", strerror(errno));
         return -1;
     }
 
@@ -90,7 +90,7 @@ void tty_set_attrs_from_config(struct termios *attrs, serial_config_t *config) {
 
         case FLOW_CONTROL_HW:
             attrs->c_cflag |= (CCTS_OFLOW | CRTS_IFLOW);
-            //missing break is intentional
+            // missing break is intentional
 
         case FLOW_CONTROL_SW:
             attrs->c_iflag |= (IXON | IXOFF);

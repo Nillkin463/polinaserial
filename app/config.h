@@ -12,7 +12,8 @@ typedef struct {
     bool filter_lolcat;
 
     /* state */
-    useconds_t wait;
+    useconds_t delay;
+    bool retry;
 
     /* miscallenous */
     bool logging_disabled;
