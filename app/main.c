@@ -163,12 +163,16 @@ static int app_out_callback(char *in_buf, size_t in_len) {
                 curr_char_off = offs[curr_char_off];
             }
 
-            REQUIRE(buf_off + curr_char_off <= len, fail);
+            REQUIRE(curr_char_off <= len, fail);
 
-            write(STDOUT_FILENO, buf + buf_off, curr_char_off);
+            write(STDOUT_FILENO, buf + buf_off, curr_char_off - buf_off);
             buf_off += curr_char_off;
 
             iboot_print_file(STDOUT_FILENO, curr);
+        }
+
+        if (buf_off < len) {
+            write(STDOUT_FILENO, buf + buf_off, len - buf_off);
         }
     } else {
         write(STDOUT_FILENO, buf, len);
