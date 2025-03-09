@@ -367,9 +367,10 @@ int main(int argc, const char *argv[]) {
     pthread_t user_input_thr = { 0 };
     pthread_create(&user_input_thr, NULL, app_user_input_thread, NULL);
 
+    app_event_t event;
     while (true) {
         /* this will block until we disconnect or something errors out */
-        app_event_t event = app_event_loop();
+        event = app_event_loop();
 
         if (config.retry && event == APP_EVENT_DISCONNECT_DEVICE) {
             POLINA_WARNING("[trying to reconnect]");
