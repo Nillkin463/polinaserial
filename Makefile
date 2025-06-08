@@ -17,10 +17,15 @@ CODESIGN_FLAGS := -s - -f
 ARCHS := -arch x86_64 -arch arm64
 MACOSX_MIN_VERSION := -mmacosx-version-min=10.7
 
-BUILD_TAG_DB := polinaserial_tag_db.json
-BUILD_TAG_FILE := .tag
+BUILD_TAG_BASE_FILE := .tag
+DIRTY := $(shell git diff-files --quiet; echo $$?)
 
-$(shell $(PYTHON) polinatag.py generate . $(BUILD_TAG_DB) > $(BUILD_TAG_FILE))
+ifeq ($(DIRTY),0)
+	BUILD_TAG_FILE := $(BUILD_TAG_BASE_FILE)
+else
+    $(shell printf $(shell cat $(BUILD_TAG_BASE_FILE))-dirty > .tag_final)
+	BUILD_TAG_FILE := .tag_final
+endif
 
 CFLAGS := $(ARCHS)
 CFLAGS += $(MACOSX_MIN_VERSION)
@@ -83,7 +88,6 @@ $(BINARY): $(OBJECTS)
 	@$(CC) $(LDFLAGS) $^ -o $@
 	@echo "\tcodesigning"
 	@$(CODESIGN) $(CODESIGN_FLAGS) $@
-	@$(shell $(PYTHON) polinatag.py commit $(BUILD_TAG_DB))
 
 $(CURRENT_ROOT)/%.o: %.c
 	@echo "\tcompiling C: $<"

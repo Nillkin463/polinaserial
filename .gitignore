@@ -4,4 +4,5 @@
 .DS_Store
 /polinaserial_tag_db.json
 .tag
+.tag_final
 __pycache__
