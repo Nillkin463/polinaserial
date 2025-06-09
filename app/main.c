@@ -157,8 +157,8 @@ static int app_out_callback(uint8_t *in_buf, size_t in_len) {
 
             case kSeqUnicode: {
                 if (config.filter_lolcat) {
-                    if (seq_ctx.utf8_first_byte) {
-                        lolcatify = lolcat_push_unicode;   
+                    if (seq_ctx.has_utf8_first_byte) {
+                        lolcatify = lolcat_push_one;   
                     }
                 }
 

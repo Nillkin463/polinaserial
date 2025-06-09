@@ -6,21 +6,23 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <string.h>
+#include <app/halt.h>
 #include <app/misc.h>
 
 #define COLOR_256  "\x1B[38;5;"
 #define STOP       "m"
 #define RESET      "\x1B[0m"
 
-#define SKIP_COUNT  (3)
+#define SKIP_COUNT  (4)
 
 struct lolcat_color {
     char clr[4];
+    int raw;
     int len;
 };
 
 #define LOLCAT_CLR(_clr) \
-    {#_clr, CONST_STRLEN(#_clr)}
+    {#_clr, _clr, CONST_STRLEN(#_clr)}
 
 static const struct lolcat_color lolcat_lut[] = {
     LOLCAT_CLR(214), LOLCAT_CLR(208), LOLCAT_CLR(208), LOLCAT_CLR(203),
@@ -37,6 +39,7 @@ static const struct lolcat_color lolcat_lut[] = {
 
 #define LOLCAT_LUT_CNT  (sizeof(lolcat_lut) / sizeof(*lolcat_lut))
 
+static int lut_pos_prev = 0;
 static int lut_pos = 0;
 static int lut_line_pos = 0;
 static int lut_pos_skip = 0;
@@ -71,6 +74,31 @@ static bool lolcat_printable(char c) {
         _out_len += __len; \
     } while (0)
 
+
+int lolcat_push_one(const uint8_t *data, size_t len, uint8_t *out, size_t *out_len) {
+    size_t max_len = *out_len;
+    size_t _out_len = 0;
+
+    if (lut_pos_prev != lut_pos) {
+        if (lolcat_lut[lut_pos_prev].raw != lolcat_lut[lut_pos].raw) {
+            const struct lolcat_color *clr = &lolcat_lut[lut_pos];
+            PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
+            PUSH(clr->clr, clr->len);
+            PUSH(STOP, CONST_STRLEN(STOP));
+        }
+
+        lut_pos_prev = lut_pos;
+    }
+
+    PUSH(data, len);
+
+    lut_pos = lut_pos_increment(lut_pos);
+
+    *out_len = _out_len;
+
+    return 0;
+}
+
 int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t *out_len) {
     size_t max_len = *out_len;
     size_t _out_len = 0;
@@ -79,20 +107,13 @@ int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t
         uint8_t c = data[i];
 
         if (lolcat_printable(c)) {
-            const struct lolcat_color *clr = &lolcat_lut[lut_pos];
-
-            PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
-            PUSH(clr->clr, clr->len);
-            PUSH(STOP, CONST_STRLEN(STOP));
-
-            PUSH(&c, 1);
-
-            lut_pos = lut_pos_increment(lut_pos);
-
+            size_t __out_len = max_len - _out_len;
+            REQUIRE_NOERR(lolcat_push_one(&c, sizeof(c), out + _out_len, &__out_len), fail);
+            _out_len += __out_len;
         } else {
             switch (c) {
                 case ' ':
-                    PUSH(" ", 1);
+                    PUSH(&c, sizeof(c));
                     lut_pos = lut_pos_increment(lut_pos);
                     break;
 
@@ -102,7 +123,7 @@ int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t
                     /* break is missed intentionally */
     
                 default:
-                    PUSH(&c, 1);
+                    PUSH(&c, sizeof(c));
                     break;
             }
         }
@@ -111,25 +132,9 @@ int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t
     *out_len = _out_len;
 
     return 0;
-}
 
-int lolcat_push_unicode(const uint8_t *data, size_t char_len, uint8_t *out, size_t *out_len) {
-    size_t max_len = *out_len;
-    size_t _out_len = 0;
-
-    const struct lolcat_color *clr = &lolcat_lut[lut_pos];
-
-    PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
-    PUSH(clr->clr, clr->len);
-    PUSH(STOP, CONST_STRLEN(STOP));
-
-    PUSH(data, char_len);
-
-    lut_pos = lut_pos_increment(lut_pos);
-
-    *out_len = _out_len;
-
-    return 0;
+fail:
+    return -1;
 }
 
 void lolcat_reset() {
@@ -138,6 +143,7 @@ void lolcat_reset() {
 }
 
 void lolcat_init() {
+    lut_pos_prev = -1;
     lut_pos = arc4random_uniform(LOLCAT_LUT_CNT - 1);
     lut_line_pos = lut_pos;
 }

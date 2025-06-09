@@ -22,9 +22,9 @@ int lolcat_push_ascii(
     size_t *out_len
 );
 
-int lolcat_push_unicode(
+int lolcat_push_one(
     const uint8_t *data,
-    size_t char_len,
+    size_t len,
     uint8_t *out,
     size_t *out_len
 );

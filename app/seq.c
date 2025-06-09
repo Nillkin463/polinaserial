@@ -115,7 +115,7 @@ static void handle_broken_seq(seq_ctx_t *ectx) {
         ictx.type = kSeqNone;
         return;
     }
-    
+
     if (ictx.type == kSeqNormal) {
         ectx->type = ictx.type;
         ictx.shall_finish = true;
@@ -175,7 +175,7 @@ int seq_process_chars(seq_ctx_t *ectx, const uint8_t *buf, size_t len) {
             } else if (is_unicode_character(c, &ictx.utf8_cnt_left)) {
                 ictx.type = kSeqUnicode;
                 ictx.utf8_cnt_left--;
-                ectx->utf8_first_byte = true;
+                ectx->has_utf8_first_byte = true;
             } else if (is_escape_character(c)) {
                 ictx.type = kSeqEscapeCSI;
                 ictx.esc_state = kEscSeqGoing;
@@ -205,8 +205,11 @@ int seq_process_chars(seq_ctx_t *ectx, const uint8_t *buf, size_t len) {
 
                 case kSeqUnicode: {
                     if (is_unicode_nth_character(c)) {
+                        if (ictx.idx == 0) {
+                            ectx->has_utf8_first_byte = false;
+                        }
+
                         ictx.utf8_cnt_left--;
-                        ectx->utf8_first_byte = false;
 
                         if (ictx.utf8_cnt_left == 0) {
                             handle_finished_seq(ectx);

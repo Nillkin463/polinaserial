@@ -21,7 +21,7 @@ typedef enum {
 
 typedef struct {
     seq_type_t type;
-    bool utf8_first_byte;
+    bool has_utf8_first_byte;
 } seq_ctx_t;
 
 int seq_process_chars(seq_ctx_t *ctx, const uint8_t *buf, size_t len);
