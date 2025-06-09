@@ -1,6 +1,8 @@
 #include "iboot.h"
 #include "iboot_config.h"
 
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <limits.h>
@@ -76,12 +78,9 @@ static const char *iboot_find_file_for_hmac(uint64_t hmac) {
     return NULL;
 }
 
-int iboot_push_data(const char *data, size_t data_len, iboot_file_pos_t pos[], size_t *pos_cnt) {
-    size_t max_pos_cnt = *pos_cnt;
-    size_t _pos_cnt = 0;
-
+int iboot_push_data(const uint8_t *data, size_t data_len) {
     for (size_t i = 0; i < data_len; i++) {
-        char c = data[i];
+        uint8_t c = data[i];
 
         switch (state) {
             case STATE_WAITING_FOR_HMAC: {
@@ -124,25 +123,7 @@ int iboot_push_data(const char *data, size_t data_len, iboot_file_pos_t pos[], s
                     current_line = current_line * 10 + line_digit;
 
                 } else {
-                    if (c == '\r' || c == '\n' || c == ' ') {
-                        const char *file = iboot_find_file_for_hmac(current_hmac);
-
-                        if (file) {
-                            iboot_file_pos_t *curr = &pos[_pos_cnt];
-
-                            curr->off = i;
-                            curr->file = file;
-                            curr->line = current_line;
-
-                            _pos_cnt++;
-
-                            if (_pos_cnt == max_pos_cnt) {
-                                return -1;
-                            }
-                        }
-
-                        iboot_clear_state();
-                    }
+                    iboot_clear_state();
                 }
 
                 break;
@@ -150,22 +131,50 @@ int iboot_push_data(const char *data, size_t data_len, iboot_file_pos_t pos[], s
         }
     }
 
-    *pos_cnt = _pos_cnt;
-
+out:
     return 0;
 }
 
 #define START_FILE  "\t" ANSI_START ANSI_GREEN ANSI_DELIM ANSI_BOLD ANSI_END "<"
 #define END_FILE    ">" ANSI_START ANSI_RESET ANSI_END
 
-void iboot_print_file(int fd, iboot_file_pos_t *pos) {
+int iboot_output_file(iboot_log_line_t *line, uint8_t *buf, size_t *out_len) {
+    size_t max_len = *out_len;
+    size_t curr_len = 0;
     char line_buf[8] = { 0 };
-    char *line = NULL;
+    char *file_line = NULL;
 
-    write(fd, START_FILE, CONST_STRLEN(START_FILE));
-    write(fd, pos->file, strlen(pos->file));
-    write(fd, ":", 1);
-    line = itoa(pos->line, line_buf, sizeof(line_buf));
-    write(fd, line, sizeof(line_buf) - (line - line_buf));
-    write(fd, END_FILE, CONST_STRLEN(END_FILE));
+#define PUSH(_data, _len) \
+    do { \
+        if (curr_len + _len > max_len) { return -1; } \
+        memcpy(buf + curr_len, _data, _len); \
+        curr_len += _len; \
+    } while(0)
+
+    PUSH(START_FILE, CONST_STRLEN(START_FILE));
+    PUSH(line->file, strlen(line->file));
+    PUSH(":", 1);
+    file_line = itoa(line->line, line_buf, sizeof(line_buf));
+    PUSH(file_line, sizeof(line_buf) - (file_line - line_buf));
+    PUSH(END_FILE, CONST_STRLEN(END_FILE));
+
+    *out_len = curr_len;
+
+    return 0;
+}
+
+bool iboot_trigger(iboot_log_line_t *line) {
+    bool ret = false;
+    if (state == STATE_WAITING_FOR_LINE) {
+        const char *file = iboot_find_file_for_hmac(current_hmac);
+        if (file) {
+            line->file = file;
+            line->line = current_line;
+            ret = true;
+        }
+    }
+
+    iboot_clear_state();
+
+    return ret;
 }

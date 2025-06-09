@@ -44,24 +44,4 @@ const char *last_path_component(const char *path);
 
 char *itoa(int i, char *a, size_t l);
 
-static inline __attribute__((noreturn)) void panic(const char *reason) {
-    POLINA_ERROR("[polinaserial panic]: %s", reason);
-    abort();
-}
-
-#define REQUIRE(_cond, _label) \
-    if (!(_cond)) { \
-        goto _label; \
-    }
-
-#define REQUIRE_NOERR(_expr, _label) \
-    if (_expr != 0) { \
-        goto _label; \
-    }
-
-#define REQUIRE_PANIC(_cond) \
-    if (!(_cond)) { \
-        panic("REQUIRE failed - " #_cond); \
-    }
-
 #endif

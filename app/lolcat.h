@@ -6,14 +6,27 @@
 #include <stdbool.h>
 
 void lolcat_init();
+void lolcat_reset();
 
-int lolcat_push_data(
-    const char *data,
+typedef int (*lolcat_handler_t)(
+    const uint8_t *data,
     size_t data_len,
-    char *out,
-    size_t *out_len,
-    uint16_t *offs,
-    size_t *offs_cnt
+    uint8_t *out,
+    size_t *out_len
+);
+
+int lolcat_push_ascii(
+    const uint8_t *data,
+    size_t data_len,
+    uint8_t *out,
+    size_t *out_len
+);
+
+int lolcat_push_unicode(
+    const uint8_t *data,
+    size_t char_len,
+    uint8_t *out,
+    size_t *out_len
 );
 
 #endif

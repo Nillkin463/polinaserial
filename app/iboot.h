@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef struct {
     uint64_t hmac;
@@ -10,12 +11,12 @@ typedef struct {
 } iboot_hmac_config_t;
 
 typedef struct {
-    uint16_t off;
-    int line;
     const char *file;
-} iboot_file_pos_t;
+    int line;
+} iboot_log_line_t;
 
-int  iboot_push_data(const char *data, size_t data_len, iboot_file_pos_t pos[], size_t *pos_cnt);
-void iboot_print_file(int fd, iboot_file_pos_t *pos);
+int  iboot_push_data(const uint8_t *data, size_t data_len);
+int  iboot_output_file(iboot_log_line_t *line, uint8_t *buf, size_t *out_len);
+bool iboot_trigger(iboot_log_line_t *line);
 
 #endif

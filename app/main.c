@@ -1,28 +1,32 @@
 #include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <dlfcn.h>
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/event.h>
-#include <sys/time.h>
 #include <mach-o/getsect.h>
 
 #include <app/config.h>
 #include <app/driver.h>
 #include <app/event.h>
 #include <app/term.h>
+#include <app/halt.h>
 #include <app/misc.h>
 #include <app/tty.h>
 #include "lolcat.h"
 #include "config.h"
 #include "event.h"
 #include "iboot.h"
+#include "seq.h"
 #include "log.h"
 
-#define DEFAULT_DRIVER  "uart"
+#define DEFAULT_DRIVER  "serial"
 
 static app_config_t config = { 0 };
 
@@ -91,6 +95,10 @@ int app_event_signal(app_event_t event) {
 static app_event_t app_event_loop() {
     app_event_t event = event_wait(&ctx.event);
 
+    if (config.filter_lolcat) {
+        lolcat_reset();
+    }
+
     POLINA_LINE_BREAK();
 
     switch (event) {
@@ -118,69 +126,91 @@ static app_event_t app_event_loop() {
     return event;
 }
 
-#define APP_OUT_BUFFER_SIZE     (DRIVER_MAX_BUFFER_SIZE * 8 + 32)
-#define APP_OUT_IBOOT_POS_CNT   (128)
+static seq_ctx_t seq_ctx = { 0 };
+uint8_t out_buf[DRIVER_MAX_BUFFER_SIZE * 16] = { 0 };
 
-static int app_out_callback(char *in_buf, size_t in_len) {
-    char *buf = in_buf;
-    size_t len = in_len;
+static int app_out_callback(uint8_t *in_buf, size_t in_len) {
+    size_t out_len = 0;
+    uint8_t *curr_buf = in_buf;
+    size_t left = in_len;
 
-    char processed[APP_OUT_BUFFER_SIZE];
-    size_t processed_len = APP_OUT_BUFFER_SIZE;
+    while (left) {
+        size_t _out_len = 0;
+        lolcat_handler_t lolcatify = NULL;
+        iboot_log_line_t iboot_line = { 0 };
 
-    iboot_file_pos_t iboot_pos[APP_OUT_IBOOT_POS_CNT];
-    size_t iboot_pos_cnt = APP_OUT_IBOOT_POS_CNT;
+        int cnt = seq_process_chars(&seq_ctx, curr_buf, left);
+        REQUIRE_PANIC(cnt > 0);
 
-    uint16_t offs[DRIVER_MAX_BUFFER_SIZE];
-    size_t offs_cnt = DRIVER_MAX_BUFFER_SIZE;
-
-    /* lolcat & iBoot filters need XXX */
-    if (config.filter_lolcat || config.filter_iboot) {
-        uint16_t *_offs = NULL;
-        size_t *_offs_cnt = NULL;
-
-        if (config.filter_iboot) {
-            REQUIRE_NOERR(iboot_push_data(in_buf, in_len, iboot_pos, &iboot_pos_cnt), fail);
-            _offs = offs;
-            _offs_cnt = &offs_cnt;
+        if (cnt > left) {
+            panic("too many bytes (cnt: %d, left: %d)", cnt, left);
         }
 
-        if (config.filter_lolcat) {
-            REQUIRE_NOERR(lolcat_push_data(in_buf, in_len, processed, &processed_len, _offs, _offs_cnt), fail);
-            buf = processed;
-            len = processed_len;
-        }
-    }
+        switch (seq_ctx.type) {
+            case kSeqNormal: {
+                if (config.filter_lolcat) {
+                    lolcatify = lolcat_push_ascii;
+                }
 
-    if (config.filter_iboot && iboot_pos_cnt) {
-        off_t buf_off = 0;
-
-        for (size_t i = 0; i < iboot_pos_cnt; i++) {
-            iboot_file_pos_t *curr = &iboot_pos[i];
-            uint16_t curr_char_off = curr->off;
-
-            if (config.filter_lolcat) {
-                curr_char_off = offs[curr_char_off];
+                break;
             }
 
-            REQUIRE(curr_char_off <= len, fail);
+            case kSeqUnicode: {
+                if (config.filter_lolcat) {
+                    if (seq_ctx.utf8_first_byte) {
+                        lolcatify = lolcat_push_unicode;   
+                    }
+                }
 
-            write(STDOUT_FILENO, buf + buf_off, curr_char_off - buf_off);
-            buf_off += curr_char_off;
+                break;
+            }
 
-            iboot_print_file(STDOUT_FILENO, curr);
+            case kSeqControl:
+            case kSeqEscapeCSI:
+            case kSeqUnknown:
+                break;
+
+            default:
+                panic("the hell is this sequence (%d)", seq_ctx.type);
         }
 
-        if (buf_off < len) {
-            write(STDOUT_FILENO, buf + buf_off, len - buf_off);
+        if (config.filter_iboot && (seq_ctx.type == kSeqNormal)) {
+            REQUIRE_PANIC_NOERR(iboot_push_data(curr_buf, cnt));
         }
-    } else {
-        write(STDOUT_FILENO, buf, len);
+
+        if (seq_ctx.type == kSeqControl && *curr_buf == '\r') {
+            if (iboot_trigger(&iboot_line)) {
+                _out_len = sizeof(out_buf) - out_len;
+                REQUIRE_PANIC_NOERR(iboot_output_file(&iboot_line, out_buf + out_len, &_out_len));
+                out_len += _out_len;
+            }
+        }
+
+        if (lolcatify) {
+            _out_len = sizeof(out_buf) - out_len;
+            REQUIRE_PANIC_NOERR(lolcatify(curr_buf, cnt, out_buf + out_len, &_out_len));
+            out_len += _out_len;
+        } else {
+            memcpy(out_buf + out_len, curr_buf, cnt);
+            out_len += cnt;
+        }
+
+        if (!config.logging_disabled) {
+            switch (seq_ctx.type) {
+                case kSeqNormal:
+                case kSeqUnicode:
+                    REQUIRE_PANIC_NOERR(log_push(curr_buf, cnt));
+
+                default:
+                    break;
+            }
+        }
+
+        curr_buf += cnt;
+        left -= cnt;
     }
 
-    if (!config.logging_disabled) {
-        REQUIRE_NOERR(log_push(in_buf, in_len), fail);
-    }
+    write(STDOUT_FILENO, out_buf, out_len);
 
     return 0;
 
@@ -188,7 +218,7 @@ fail:
     return -1;
 }
 
-static int app_handle_user_input(char c) {
+static int app_handle_user_input(uint8_t c) {
     if (config.filter_delete && c == 0x7F) {
         c = 0x08;
     }
@@ -252,14 +282,14 @@ void app_config_print() {
     app_config_print_internal(&config);
 }
 
-static char *__get_tag() {
-    static char *tag;
+char __build_tag[256] = { 0 };
 
-    if (tag) {
-        return tag;
+static char *__get_tag() {
+    if (*__build_tag) {
+        return __build_tag;
     }
 
-    unsigned long size;
+    unsigned long size = 0;
     char *data = (char *)getsectiondata(dlsym(RTLD_MAIN_ONLY, "_mh_execute_header"), "__TEXT", "__build_tag", &size);
     if (!data) {
         POLINA_WARNING("couldn't get embedded build tag");
@@ -267,11 +297,9 @@ static char *__get_tag() {
         size = sizeof(PRODUCT_NAME "-???");
     }
 
-    tag = malloc(size + 1);
-    memcpy(tag, data, size);
-    tag[size] = '\0';
+    strncpy(__build_tag, data, size);
 
-    return tag;
+    return __build_tag;
 }
 
 void app_version() {

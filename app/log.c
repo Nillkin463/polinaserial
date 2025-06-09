@@ -78,22 +78,15 @@ static int log_push_char(char c) {
     return 0;
 }
 
-static bool is_loggable_character(char c) {
-    return (c >= 0x20 && c <= 0x7e) || c == '\t' || c == '\n';
-}
-
-int log_push(const char *buf, size_t len) {
+int log_push(const uint8_t *buf, size_t len) {
     if (!ctx.started) {
         ctx.started = true;
     }
 
     for (size_t i = 0; i < len; i++) {
         char c = buf[i];
-    
-        if (is_loggable_character(c)) {
-            if (log_push_char(c) != 0) {
-                return -1;
-            }
+        if (log_push_char(c) != 0) {
+            return -1;
         }
     }
 

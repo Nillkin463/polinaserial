@@ -2,11 +2,12 @@
 #define APP_DRIVER_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include <limits.h>
 
 #define DRIVER_MAX_BUFFER_SIZE  (1024)
 
-typedef int (*driver_event_cb_t)(char *buf, size_t len);
+typedef int (*driver_event_cb_t)(uint8_t *buf, size_t len);
 
 typedef struct {
     char name[24];
@@ -14,19 +15,20 @@ typedef struct {
     int  (*preflight)();
     int  (*start)(driver_event_cb_t out_cb);
     int  (*restart)();
-    int  (*write)(char *buf, size_t len);
+    int  (*write)(uint8_t *buf, size_t len);
     int  (*quiesce)();
     void (*log_name)(char name[], size_t len);
     void (*config_print)();
     void (*help)();
 } driver_t;
 
+
 #define DRIVER_ADD(name, init, preflight, start, restart, write, quiesce, log_name, config_print, help) \
-    __attribute__((used)) driver_t __driver_##name __attribute__((section("__DATA,__drivers"))) = \
+    __attribute__((used, disable_sanitizer_instrumentation)) static const driver_t __driver_##name __attribute__((section("__DATA,__drivers"))) = \
         {#name, init, preflight, start, restart, write, quiesce, log_name, config_print, help};
 
-extern void *_gDrivers      __asm("section$start$__DATA$__drivers");
-extern void *_gDriversEnd   __asm("section$end$__DATA$__drivers");
+extern const void *_gDrivers      __asm("section$start$__DATA$__drivers");
+extern const void *_gDriversEnd   __asm("section$end$__DATA$__drivers");
 
 static const driver_t *gDrivers = (driver_t *)&_gDrivers;
 static const driver_t *gDriversEnd = (driver_t *)&_gDriversEnd;

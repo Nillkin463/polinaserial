@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 #include <app/tty.h>
 #include <app/term.h>
+#include <app/halt.h>
 #include <app/misc.h>
 
 #define SCROLL_UP_FMT   "\033[%dS"

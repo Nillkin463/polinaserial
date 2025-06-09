@@ -1,0 +1,4 @@
+LOCAL_DIR := $(GET_LOCAL_DIR)
+
+OBJECTS += \
+	$(CURRENT_ROOT)/$(LOCAL_DIR)/random.o

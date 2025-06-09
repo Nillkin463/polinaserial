@@ -12,12 +12,12 @@
 #include <app/driver.h>
 #include <app/config.h>
 #include <app/event.h>
+#include <app/halt.h>
 #include <app/misc.h>
 #include <app/tty.h>
 
 #include "menu.h"
 #include "iokit.h"
-#include "baudrate_presets.h"
 #include "config.h"
 #include "device.h"
 
@@ -87,7 +87,7 @@ static void *serial_loop(void *arg) {
     driver_event_cb_t cb = arg;
     app_event_t event = APP_EVENT_NONE;
     struct kevent ke = { 0 };
-    char buf[DRIVER_MAX_BUFFER_SIZE];
+    uint8_t buf[DRIVER_MAX_BUFFER_SIZE];
 
     ctx.kq = kqueue();
     if (ctx.kq == -1) {
@@ -212,7 +212,7 @@ out:
     return ret;
 }
 
-static int _write(char *buf, size_t len) {
+static int _write(uint8_t *buf, size_t len) {
     write(ctx.dev_fd, buf, len);
     return 0;
 }
@@ -239,8 +239,7 @@ static int quiesce() {
 
 static void log_name(char name[], size_t len) {
     if (!ctx.ready) {
-        POLINA_ERROR("serial driver uninitialized, but log_name() was called?!");
-        abort();
+        panic("serial driver uninitialized, but log_name() was called?!");
     }
 
     if (ctx.picked) {
@@ -255,7 +254,7 @@ static void config_print() {
 }
 
 DRIVER_ADD(
-    uart,
+    serial,
     init,
     preflight,
     start,

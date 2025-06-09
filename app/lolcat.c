@@ -1,6 +1,7 @@
 #include "lolcat.h"
 
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -37,7 +38,6 @@ static const struct lolcat_color lolcat_lut[] = {
 #define LOLCAT_LUT_CNT  (sizeof(lolcat_lut) / sizeof(*lolcat_lut))
 
 static int lut_pos = 0;
-static int lut_pos_prev = 0;
 static int lut_line_pos = 0;
 static int lut_pos_skip = 0;
 
@@ -61,49 +61,31 @@ static bool lolcat_printable(char c) {
     return c > 0x20 && c < 0x7F;
 }
 
-int lolcat_push_data(const char *data, size_t data_len, char *out, size_t *out_len, uint16_t *offs, size_t *offs_cnt) {
-    size_t max_len = *out_len;
-    size_t _out_len = 0;
-    size_t max_offs_cnt = 0;
-    size_t _offs_cnt = 0;
-
-    if (offs) {
-        max_offs_cnt = *offs_cnt;
-    }
-
 #define PUSH(__data, __len) \
     do { \
         if (_out_len + __len > max_len) { \
+            POLINA_ERROR("\nmax_len: %zu, _out_len + __len: %zu", max_len, _out_len + __len); \
             return -1; \
         } \
         memcpy(out + _out_len, __data, __len); \
         _out_len += __len; \
     } while (0)
 
-#define PUSH_OFF() \
-    if (offs) { \
-        offs[_offs_cnt] = _out_len; \
-        _offs_cnt++; \
-        if (_offs_cnt == max_offs_cnt) { \
-            return -1; \
-        } \
-    }
+int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t *out_len) {
+    size_t max_len = *out_len;
+    size_t _out_len = 0;
 
     for (size_t i = 0; i < data_len; i++) {
-        char c = data[i];
-
-        PUSH_OFF();
+        uint8_t c = data[i];
 
         if (lolcat_printable(c)) {
-            if (lut_pos_prev != lut_pos) {
-                const struct lolcat_color *clr = &lolcat_lut[lut_pos];
-                PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
-                PUSH(clr->clr, clr->len);
-                PUSH(STOP, CONST_STRLEN(STOP));
-                lut_pos_prev = lut_pos;
-            }
+            const struct lolcat_color *clr = &lolcat_lut[lut_pos];
 
-            PUSH(data + i, 1);
+            PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
+            PUSH(clr->clr, clr->len);
+            PUSH(STOP, CONST_STRLEN(STOP));
+
+            PUSH(&c, 1);
 
             lut_pos = lut_pos_increment(lut_pos);
 
@@ -126,20 +108,36 @@ int lolcat_push_data(const char *data, size_t data_len, char *out, size_t *out_l
         }
     }
 
-    PUSH(RESET, CONST_STRLEN(RESET));
-
     *out_len = _out_len;
-    if (offs_cnt) {
-        *offs_cnt = _offs_cnt;
-    }
-
-    lut_pos_prev = -1;
 
     return 0;
 }
 
+int lolcat_push_unicode(const uint8_t *data, size_t char_len, uint8_t *out, size_t *out_len) {
+    size_t max_len = *out_len;
+    size_t _out_len = 0;
+
+    const struct lolcat_color *clr = &lolcat_lut[lut_pos];
+
+    PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
+    PUSH(clr->clr, clr->len);
+    PUSH(STOP, CONST_STRLEN(STOP));
+
+    PUSH(data, char_len);
+
+    lut_pos = lut_pos_increment(lut_pos);
+
+    *out_len = _out_len;
+
+    return 0;
+}
+
+void lolcat_reset() {
+    write(STDOUT_FILENO, RESET, CONST_STRLEN(RESET));
+    fflush(stdout);
+}
+
 void lolcat_init() {
     lut_pos = arc4random_uniform(LOLCAT_LUT_CNT - 1);
-    lut_pos_prev = -1;
     lut_line_pos = lut_pos;
 }
