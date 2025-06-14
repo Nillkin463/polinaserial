@@ -8,24 +8,25 @@
 #define DRIVER_MAX_BUFFER_SIZE  (1024)
 
 typedef int (*driver_event_cb_t)(uint8_t *buf, size_t len);
+typedef int (*restart_cb_t)();
 
 typedef struct {
     char name[24];
     int  (*init)(int argc, const char *argv[]);
     int  (*preflight)();
     int  (*start)(driver_event_cb_t out_cb);
-    int  (*restart)();
+    int  (*restart)(restart_cb_t cb);
     int  (*write)(uint8_t *buf, size_t len);
     int  (*quiesce)();
     void (*log_name)(char name[], size_t len);
-    void (*config_print)();
+    void (*print_cfg)();
     void (*help)();
 } driver_t;
 
 
-#define DRIVER_ADD(name, init, preflight, start, restart, write, quiesce, log_name, config_print, help) \
+#define DRIVER_ADD(name, init, preflight, start, restart, write, quiesce, log_name, print_cfg, help) \
     __attribute__((used, disable_sanitizer_instrumentation)) static const driver_t __driver_##name __attribute__((section("__DATA,__drivers"))) = \
-        {#name, init, preflight, start, restart, write, quiesce, log_name, config_print, help};
+        {#name, init, preflight, start, restart, write, quiesce, log_name, print_cfg, help};
 
 extern const void *_gDrivers      __asm("section$start$__DATA$__drivers");
 extern const void *_gDriversEnd   __asm("section$end$__DATA$__drivers");

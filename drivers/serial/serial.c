@@ -36,7 +36,9 @@ static struct {
     driver_event_cb_t out_cb;
 
     int kq;
-    pthread_t loop_thr;
+    pthread_t data_loop_thr;
+
+    pthread_t restart_loop_thr;
 } ctx = { 0 };
 
 static serial_config_t config = { 0 };
@@ -83,8 +85,8 @@ out:
 
 #define LOOP_SHUTDOWN_ID    (613)
 
-static void *serial_loop(void *arg) {
-    pthread_setname_np("serial driver loop");
+static void *data_loop(void *arg) {
+    pthread_setname_np("serial driver data loop");
 
     driver_event_cb_t cb = arg;
     app_event_t event = APP_EVENT_NONE;
@@ -166,7 +168,7 @@ static int start(driver_event_cb_t out_cb) {
     ctx.out_cb = out_cb;
     ctx.attrs_modified = true;
 
-    pthread_create(&ctx.loop_thr, NULL, serial_loop, out_cb);
+    pthread_create(&ctx.data_loop_thr, NULL, data_loop, out_cb);
 
     ret = 0;
     goto out;
@@ -193,25 +195,37 @@ out:
     return;
 }
 
-static int restart() {
-    int ret = -1;
+static void *restart_loop(void *arg) {
+    pthread_setname_np("serial driver restart loop");
 
-    REQUIRE_NOERR(iokit_register_serial_devices_events(restart_cb), out);
+    REQUIRE_NOERR(iokit_register_serial_devices_events(restart_cb), fail);
 
     CFRunLoopRun();
 
     iokit_unregister_serial_devices_events();
 
-    REQUIRE((ctx.dev_fd = device_open_with_callout(ctx.callout)) != -1, out);
-    REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), out);
-    REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), out);
+    REQUIRE((ctx.dev_fd = device_open_with_callout(ctx.callout)) != -1, fail);
+    REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), fail);
+    REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), fail);
 
-    pthread_create(&ctx.loop_thr, NULL, serial_loop, ctx.out_cb);
+    pthread_create(&ctx.data_loop_thr, NULL, data_loop, ctx.out_cb);
 
-    ret = 0;
+    restart_cb_t cb = arg;
+    cb();
+
+    goto out;
+
+fail:
+    POLINA_ERROR("reconnection failure");
+    app_event_signal(APP_EVENT_ERROR);
 
 out:
-    return ret;
+    return NULL;
+}
+
+static int restart(restart_cb_t cb) {
+    pthread_create(&ctx.restart_loop_thr, NULL, restart_loop, cb);
+    return 0;
 }
 
 static int _write(uint8_t *buf, size_t len) {
@@ -225,7 +239,7 @@ static int quiesce() {
         EV_SET(&ke, LOOP_SHUTDOWN_ID, EVFILT_USER, 0, NOTE_TRIGGER, 0, NULL);
         kevent(ctx.kq, &ke, 1, 0, 0, NULL);
 
-        pthread_join(ctx.loop_thr, NULL);
+        pthread_join(ctx.data_loop_thr, NULL);
 
         close(ctx.kq);
 
@@ -251,8 +265,8 @@ static void log_name(char name[], size_t len) {
     }
 }
 
-static void config_print() {
-    serial_config_print(&config);
+static void print_cfg() {
+    serial_print_cfg(&config);
 }
 
 DRIVER_ADD(
@@ -264,6 +278,6 @@ DRIVER_ADD(
     _write,
     quiesce,
     log_name,
-    config_print,
+    print_cfg,
     serial_help
 );

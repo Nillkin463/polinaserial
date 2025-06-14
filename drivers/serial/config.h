@@ -26,7 +26,7 @@ typedef struct {
 } serial_config_t;
 
 int  serial_config_load(int argc, const char *argv[], serial_config_t *config);
-void serial_config_print(serial_config_t *config);
+void serial_print_cfg(serial_config_t *config);
 void serial_help();
 
 #endif

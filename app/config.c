@@ -102,7 +102,7 @@ int app_config_load(int argc, const char *argv[], app_config_t *config) {
     return 0;
 }
 
-void app_config_print_internal(app_config_t *config) {
+void app_print_cfg_internal(app_config_t *config) {
     POLINA_INFO_NO_BREAK("return: ");
     POLINA_MISC_NO_BREAK("%s", bool_on_off(config->filter_return));
 

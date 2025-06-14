@@ -99,7 +99,7 @@ static void log_name(char name[], size_t len) {
     strlcpy(name, "RANDOM", len);
 }
 
-static void config_print() {
+static void print_cfg() {
 }
 
 static void help() {
@@ -115,6 +115,6 @@ DRIVER_ADD(
     _write,
     quiesce,
     log_name,
-    config_print,
+    print_cfg,
     help
 );

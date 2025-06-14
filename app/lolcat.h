@@ -6,7 +6,6 @@
 #include <stdbool.h>
 
 void lolcat_init();
-void lolcat_reset();
 
 typedef int (*lolcat_handler_t)(
     const uint8_t *data,
@@ -28,5 +27,8 @@ int lolcat_push_one(
     uint8_t *out,
     size_t *out_len
 );
+
+void lolcat_reset();
+void lolcat_refresh();
 
 #endif

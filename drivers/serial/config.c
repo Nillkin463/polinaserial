@@ -160,7 +160,7 @@ help_needed:
     return -1;
 }
 
-void serial_config_print(serial_config_t *config) {
+void serial_print_cfg(serial_config_t *config) {
     POLINA_INFO_NO_BREAK("device: ");
     if (config->device) {
         POLINA_MISC_NO_BREAK("%s", config->device);

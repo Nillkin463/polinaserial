@@ -1,3 +1,4 @@
+#include <app/app.h>
 #include <app/misc.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -34,6 +35,8 @@ void _panic(const char *file, const char *func, int line, const char *fmt, ...) 
     }
 
     POLINA_ERROR("\nsomething truly terrible has happened, please report this panic");
+
+    app_quiesce(-1);
 
     abort();
 }

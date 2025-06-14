@@ -80,7 +80,7 @@ int lolcat_push_one(const uint8_t *data, size_t len, uint8_t *out, size_t *out_l
     size_t _out_len = 0;
 
     if (lut_pos_prev != lut_pos) {
-        if (lolcat_lut[lut_pos_prev].raw != lolcat_lut[lut_pos].raw) {
+        if (lut_pos_prev == -1 || lolcat_lut[lut_pos_prev].raw != lolcat_lut[lut_pos].raw) {
             const struct lolcat_color *clr = &lolcat_lut[lut_pos];
             PUSH(COLOR_256, CONST_STRLEN(COLOR_256));
             PUSH(clr->clr, clr->len);
@@ -137,13 +137,17 @@ fail:
     return -1;
 }
 
-void lolcat_reset() {
-    write(STDOUT_FILENO, RESET, CONST_STRLEN(RESET));
-    fflush(stdout);
+void lolcat_refresh() {
+    lut_pos_prev = -1;
 }
 
 void lolcat_init() {
     lut_pos_prev = -1;
     lut_pos = arc4random_uniform(LOLCAT_LUT_CNT - 1);
     lut_line_pos = lut_pos;
+}
+
+void lolcat_reset() {
+    write(STDOUT_FILENO, RESET, CONST_STRLEN(RESET));
+    fflush(stdout);
 }

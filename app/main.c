@@ -134,6 +134,10 @@ static int app_out_callback(uint8_t *in_buf, size_t in_len) {
     uint8_t *curr_buf = in_buf;
     size_t left = in_len;
 
+    if (config.filter_lolcat) {
+        lolcat_refresh();
+    }
+
     while (left) {
         size_t _out_len = 0;
         lolcat_handler_t lolcatify = NULL;
@@ -213,9 +217,6 @@ static int app_out_callback(uint8_t *in_buf, size_t in_len) {
     write(STDOUT_FILENO, out_buf, out_len);
 
     return 0;
-
-fail:
-    return -1;
 }
 
 static int app_handle_user_input(uint8_t c) {
@@ -224,6 +225,7 @@ static int app_handle_user_input(uint8_t c) {
     }
 
     if (ctx.driver->write(&c, sizeof(c)) != 0) {
+        POLINA_ERROR("couldn't write into device?!");
         return -1;
     }
 
@@ -279,9 +281,32 @@ out:
     return NULL;
 }
 
-void app_config_print() {
-    ctx.driver->config_print();
-    app_config_print_internal(&config);
+static int app_restart_cb() {
+    POLINA_SUCCESS("[reconnected]");
+    return 0;
+}
+
+int app_quiesce(int ret) {
+    /* shutting down the driver */
+    ctx.driver->quiesce();
+
+    /* shutting down logging subsystem - this can take a bit of time */
+    if (!config.logging_disabled) {
+        log_queisce();
+    }
+
+    /* restore terminal config back to original state */
+    if (app_term_restore_attrs() != 0) {
+        POLINA_ERROR("could NOT restore terminal attributes - you might want to kill it");
+        ret = -1;
+    }
+
+    return ret;
+}
+
+void app_print_cfg() {
+    ctx.driver->print_cfg();
+    app_print_cfg_internal(&config);
 }
 
 char __build_tag[256] = { 0 };
@@ -366,7 +391,7 @@ int main(int argc, const char *argv[]) {
     REQUIRE_NOERR(ctx.driver->init(argc, argv), out);
 
     /* XXX */
-    app_config_print();
+    app_print_cfg();
 
     /* save TTY's configuration to restore it later */
     REQUIRE_NOERR(app_term_save_attrs(), out);
@@ -410,8 +435,7 @@ int main(int argc, const char *argv[]) {
 
         if (config.retry && event == APP_EVENT_DISCONNECT_DEVICE) {
             POLINA_WARNING("[trying to reconnect]");
-            REQUIRE_NOERR(ctx.driver->restart(), out);
-            POLINA_SUCCESS("[reconnected]");
+            REQUIRE_NOERR(ctx.driver->restart(app_restart_cb), out);
         } else {
             break;
         }
@@ -420,19 +444,5 @@ int main(int argc, const char *argv[]) {
     ret = event == APP_EVENT_ERROR ? -1 : 0;
 
 out:
-    /* shutting down the driver */
-    ctx.driver->quiesce();
-
-    /* shutting down logging subsystem - this can take a bit of time */
-    if (!config.logging_disabled) {
-        log_queisce();
-    }
-
-    /* restore terminal config back to original state */
-    if (app_term_restore_attrs() != 0) {
-        POLINA_ERROR("could NOT restore terminal attributes - you might want to kill it");
-        ret = -1;
-    }
-
-    return ret;
+    return app_quiesce(ret);
 }

@@ -120,7 +120,7 @@ static void draw() {
     app_term_clear_page();
 
     app_version();
-    app_config_print();
+    app_print_cfg();
 
     int index = 0;
     SLOT_ITERATE(_curr, {
