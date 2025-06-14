@@ -235,6 +235,8 @@ static int app_handle_user_input(uint8_t c) {
 }
 
 static void *app_user_input_thread(void *arg) {
+    pthread_setname_np("user input loop");
+
     struct kevent ke = { 0 };
     app_event_t event = APP_EVENT_NONE;
 
@@ -338,7 +340,9 @@ static void help(const char *program_name) {
     printf("logs are collected to ~/Library/Logs/" PRODUCT_NAME "/\n");
 }
 
-int main(int argc, const char *argv[]) {    
+int main(int argc, const char *argv[]) {
+    pthread_setname_np("main");
+
     int ret = -1;
 
     app_term_scroll();

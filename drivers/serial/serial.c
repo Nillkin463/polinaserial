@@ -84,6 +84,8 @@ out:
 #define LOOP_SHUTDOWN_ID    (613)
 
 static void *serial_loop(void *arg) {
+    pthread_setname_np("serial driver loop");
+
     driver_event_cb_t cb = arg;
     app_event_t event = APP_EVENT_NONE;
     struct kevent ke = { 0 };

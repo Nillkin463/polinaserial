@@ -40,6 +40,8 @@ typedef struct __attribute__((packed)) {
 } flush_event_t;
 
 static void *log_thread_handler(void *arg) {
+    pthread_setname_np("logging loop");
+
     while (true) {
         uint64_t _ev = event_wait(&ctx.flush_event);
         flush_event_t ev = *(flush_event_t *)&_ev;
