@@ -29,23 +29,24 @@ static bool is_unicode_character(uint8_t c, uint8_t *len) {
         return false;
     }
 
-    uint8_t utf8_type = (c & 0b11110000) >> 4;
+    static const struct {
+        uint8_t shift;
+        uint8_t ref;
+        uint8_t cnt;
+    } utf8_lut[] = {
+        {5, 0b110, 2},
+        {4, 0b1110, 3},
+        {3, 0b11110, 4}
+    };
 
-    switch (utf8_type) {
-        case 0b1111:
-            *len = 4;
-            break;
-        case 0b1110:
-            *len = 3;
-            break;
-        case 0b1100:
-            *len = 2;
-            break;
-        default:
-            return false;
+    for (int i = 0; i < 3; i++) {
+        if ((c >> utf8_lut[i].shift) == utf8_lut[i].ref) {
+            *len = utf8_lut[i].cnt;
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }
 
 static bool is_unicode_nth_character(uint8_t c) {
@@ -166,7 +167,7 @@ int seq_process_chars(seq_ctx_t *ectx, const uint8_t *buf, size_t len) {
 
     while (ictx.idx < len) {
         uint8_t c = buf[ictx.idx];
-        
+
         if (ictx.type == kSeqNone || ictx.type == kSeqUnknown) {
             if (is_printable_character(c)) {
                 ictx.type = kSeqNormal;
