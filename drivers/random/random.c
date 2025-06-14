@@ -1,4 +1,5 @@
 #include <_stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -14,6 +15,7 @@
 #include <app/driver.h>
 #include <app/config.h>
 #include <app/event.h>
+#include <app/halt.h>
 #include <app/misc.h>
 #include <app/tty.h>
 
@@ -21,24 +23,29 @@ static int init(int argc, const char *argv[]) {
     return 0;
 }
 
+static uint8_t data[16 * 1024 * 1024] = { 0 };
+static uint32_t idx = 0;
+
 static int preflight() {
+    arc4random_buf(data, sizeof(data));
     return 0;
 }
 
 const static uint8_t others[] = { 0x7, 0x9, 0xa, 0xb, 0xd, 0x1b };
 
 static void *random_loop(void *arg) {
+    pthread_setname_np("random driver loop");
+
     driver_event_cb_t cb = arg;
-    app_event_t event = APP_EVENT_NONE;
+    app_event_t event = APP_EVENT_DISCONNECT_DEVICE;
     uint8_t buf[DRIVER_MAX_BUFFER_SIZE];
 
-    while (true) {
-        uint32_t r = arc4random_uniform(sizeof(buf));
-        
+    while (idx < sizeof(data)) {
+        uint32_t r = data[idx];
         for (uint32_t i = 0; i < r; i++) {
-            uint8_t c = (uint8_t)arc4random_uniform(0x6f);
+            uint8_t c = data[idx++] % 0x6e;
             if (c < 0x10) {
-                c = others[arc4random_uniform(sizeof(others))];
+                c = others[c % sizeof(others)];
             } else {
                 c += 0x10;
             }
@@ -46,12 +53,18 @@ static void *random_loop(void *arg) {
             buf[i] = c;
         }
 
+        if (r == 0) {
+            idx++;
+            continue;
+        }
+
         if (cb(buf, r) != 0) {
             event = APP_EVENT_ERROR;
             goto out;
         }
 
-        usleep(arc4random_uniform(250));
+        idx += r;
+        usleep(data[idx] * 10);
     }
 
 out:
@@ -61,7 +74,7 @@ out_no_signal:
     return NULL;
 }
 
-pthread_t loop_thr;
+pthread_t loop_thr = NULL;
 
 static int start(driver_event_cb_t out_cb) {
     pthread_create(&loop_thr, NULL, random_loop, out_cb);
@@ -69,6 +82,7 @@ static int start(driver_event_cb_t out_cb) {
 }
 
 static int restart() {
+    panic("not supported in 'random' driver");
     return 0;
 }
 
@@ -77,6 +91,7 @@ static int _write(uint8_t *buf, size_t len) {
 }
 
 static int quiesce() {
+    pthread_kill(loop_thr, 0);
     return 0;
 }
 
@@ -88,6 +103,7 @@ static void config_print() {
 }
 
 static void help() {
+    printf("\tthis is just for testing\n");
 }
 
 DRIVER_ADD(
