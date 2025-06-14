@@ -5,8 +5,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include <app/tty.h>
-#include <app/misc.h>
+#include <app.h>
 #include "device.h"
 #include "config.h"
 

@@ -2,9 +2,7 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/USBSpec.h>
 
-#include <app/ll.h>
-#include <app/halt.h>
-#include <app/misc.h>
+#include <app.h>
 #include "menu.h"
 #include "iokit.h"
 

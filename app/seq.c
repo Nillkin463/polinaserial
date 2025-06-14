@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <strings.h>
-#include <app/halt.h>
+#include <app.h>
 #include "seq.h"
 
 static struct {

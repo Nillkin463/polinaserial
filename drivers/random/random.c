@@ -13,7 +13,6 @@
 #include <sys/time.h>
 
 #include <app/driver.h>
-#include <app/config.h>
 #include <app/event.h>
 #include <app/halt.h>
 #include <app/misc.h>

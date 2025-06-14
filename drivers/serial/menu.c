@@ -1,11 +1,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <string.h>
 #include <unistd.h>
-#include <app/app.h>
-#include <app/ll.h>
-#include <app/term.h>
-#include <app/halt.h>
-#include <app/misc.h>
+#include <app.h>
 #include "menu.h"
 #include "iokit.h"
 

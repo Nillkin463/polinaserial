@@ -1,5 +1,4 @@
-#include <app/app.h>
-#include <app/misc.h>
+#include <app.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdarg.h>

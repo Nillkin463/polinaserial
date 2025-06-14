@@ -5,6 +5,27 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <app.h>
+
+#define REQUIRE(_cond, _label) \
+    if (!(_cond)) { \
+        goto _label; \
+    }
+
+#define REQUIRE_NOERR(_expr, _label) \
+    if (_expr != 0) { \
+        goto _label; \
+    }
+
+#define REQUIRE_PANIC(_cond) \
+    if (!(_cond)) { \
+        panic("REQUIRE failed - " #_cond); \
+    }
+
+#define REQUIRE_PANIC_NOERR(_expr) \
+    if (_expr != 0) { \
+        panic("REQUIRE_NOERR failed - " #_expr); \
+    }
 
 #define STR_IMPL_(x)    #x
 #define STR(x)          STR_IMPL_(x)
