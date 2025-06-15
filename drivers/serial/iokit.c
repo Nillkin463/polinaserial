@@ -1,10 +1,12 @@
 #include <string.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/USBSpec.h>
-
 #include <app.h>
 #include "menu.h"
 #include "iokit.h"
+
+/* because it's "not available on iOS" */
+const mach_port_t ___kIOMasterPortDefault asm("_kIOMasterPortDefault");
 
 #define STR_FROM_CFSTR(_cftsr, _target, _len) \
     REQUIRE_PANIC(CFStringGetCString(_cftsr, _target, _len, kCFStringEncodingUTF8));
@@ -152,8 +154,7 @@ int iokit_register_serial_devices_events(iokit_event_cb_t cb) {
     
     CFMutableDictionaryRef matching_dict = IOServiceMatching("IOSerialBSDClient");;
 
-    mach_port_t master_port = MACH_PORT_NULL;
-    IOMasterPort(MACH_PORT_NULL, &master_port);
+    mach_port_t master_port = ___kIOMasterPortDefault;
 
     notification_port = IONotificationPortCreate(master_port);
     CFRunLoopAddSource(
@@ -181,7 +182,7 @@ int iokit_register_serial_devices_events(iokit_event_cb_t cb) {
     
     iokit_serial_device_added_cb(cb, iterator);
     
-    termination_notification_port = IONotificationPortCreate(kIOMasterPortDefault);
+    termination_notification_port = IONotificationPortCreate(___kIOMasterPortDefault);
     CFRunLoopAddSource(
         notification_run_loop,
         IONotificationPortGetRunLoopSource(termination_notification_port),
@@ -233,7 +234,7 @@ serial_dev_list_t *iokit_serial_find_devices() {
         goto fail;
     }
 
-    if (IOServiceGetMatchingServices(kIOMasterPortDefault, matching_dict, &iterator) != KERN_SUCCESS) {
+    if (IOServiceGetMatchingServices(___kIOMasterPortDefault, matching_dict, &iterator) != KERN_SUCCESS) {
         POLINA_ERROR("couldn't get matching services");
         goto fail;
     }
