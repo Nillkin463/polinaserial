@@ -74,7 +74,8 @@ out_no_signal:
 
 pthread_t loop_thr = NULL;
 
-static int start(driver_event_cb_t out_cb) {
+static int start(driver_event_cb_t out_cb, driver_conn_cb_t conn_cb) {
+    conn_cb();
     pthread_create(&loop_thr, NULL, random_loop, out_cb);
     return 0;
 }

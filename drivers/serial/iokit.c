@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/USBSpec.h>
@@ -34,6 +35,7 @@ static io_registry_entry_t iokit_get_parent_with_class(io_service_t service, con
         }
 
         if (IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parent) != KERN_SUCCESS) {
+            __iokit_release(prev_parent);
             return IO_OBJECT_NULL;
         }
 

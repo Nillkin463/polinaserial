@@ -8,14 +8,14 @@
 #define DRIVER_MAX_BUFFER_SIZE  (1024)
 
 typedef int (*driver_event_cb_t)(uint8_t *buf, size_t len);
-typedef int (*restart_cb_t)();
+typedef int (*driver_conn_cb_t)();
 
 typedef struct {
     char name[24];
     int  (*init)(int argc, const char *argv[]);
     int  (*preflight)();
-    int  (*start)(driver_event_cb_t out_cb);
-    int  (*restart)(restart_cb_t cb);
+    int  (*start)(driver_event_cb_t out_cb, driver_conn_cb_t conn_cb);
+    int  (*restart)(driver_conn_cb_t cb);
     int  (*write)(uint8_t *buf, size_t len);
     int  (*quiesce)();
     void (*log_name)(char name[], size_t len);

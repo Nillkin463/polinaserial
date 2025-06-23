@@ -123,7 +123,7 @@ static app_event_t app_event_loop() {
 static seq_ctx_t seq_ctx = { 0 };
 uint8_t out_buf[DRIVER_MAX_BUFFER_SIZE * 16] = { 0 };
 
-static int app_out_callback(uint8_t *in_buf, size_t in_len) {
+static int app_out_cb(uint8_t *in_buf, size_t in_len) {
     size_t out_len = 0;
     uint8_t *curr_buf = in_buf;
     size_t left = in_len;
@@ -275,8 +275,13 @@ out:
     return NULL;
 }
 
+static int app_conn_cb() {
+    POLINA_INFO("\n[connected - press CTRL+] to exit]");
+    return 0;
+}
+
 static int app_restart_cb() {
-    POLINA_SUCCESS("[reconnected]");
+    POLINA_INFO("[reconnected]\n");
     return 0;
 }
 
@@ -413,10 +418,7 @@ int main(int argc, const char *argv[]) {
     event_init(&ctx.event);
 
     /* starting the driver */
-    REQUIRE_NOERR(ctx.driver->start(app_out_callback), out);
-
-    /* if we reach this point... */
-    POLINA_INFO("\n[connected - press CTRL+] to exit]");
+    REQUIRE_NOERR(ctx.driver->start(app_out_cb, app_conn_cb), out);
 
     /* create user input handler thread */
     pthread_t user_input_thr = { 0 };
@@ -428,7 +430,7 @@ int main(int argc, const char *argv[]) {
         event = app_event_loop();
 
         if (config.retry && event == APP_EVENT_DISCONNECT_DEVICE) {
-            POLINA_WARNING("[trying to reconnect]");
+            POLINA_WARNING("[trying to reconnect, press CTRL+] to exit]");
             REQUIRE_NOERR(ctx.driver->restart(app_restart_cb), out);
         } else {
             break;

@@ -1,3 +1,4 @@
+#include <CoreFoundation/CFRunLoop.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -11,6 +12,7 @@
 
 #include <app.h>
 
+#include "app/misc.h"
 #include "menu.h"
 #include "iokit.h"
 #include "config.h"
@@ -34,6 +36,8 @@ static struct {
     pthread_t data_loop_thr;
 
     pthread_t restart_loop_thr;
+    CFRunLoopRef restart_thr_run_loop;
+    bool restart_success;
 } ctx = { 0 };
 
 static serial_config_t config = { 0 };
@@ -88,11 +92,7 @@ static void *data_loop(void *arg) {
     struct kevent ke = { 0 };
     uint8_t buf[DRIVER_MAX_BUFFER_SIZE];
 
-    ctx.kq = kqueue();
-    if (ctx.kq == -1) {
-        POLINA_ERROR("kqueue() failed");
-        return NULL;
-    }
+    REQUIRE_PANIC((ctx.kq = kqueue()) > 0);
 
     EV_SET(&ke, LOOP_SHUTDOWN_ID, EVFILT_USER, EV_ADD, 0, 0, NULL);
     kevent(ctx.kq, &ke, 1, NULL, 0, NULL);
@@ -112,6 +112,7 @@ static void *data_loop(void *arg) {
         }
 
         if (ke.filter == EVFILT_VNODE && ke.fflags & NOTE_DELETE) {
+            close(ctx.dev_fd);
             ctx.dev_fd = -1;
             event = APP_EVENT_DISCONNECT_DEVICE;
             goto out;
@@ -125,7 +126,7 @@ static void *data_loop(void *arg) {
                     goto out;
                 }
             }
-        } else if (ke.filter == EVFILT_USER) {
+        } else if (ke.filter == EVFILT_USER && ke.ident == LOOP_SHUTDOWN_ID) {
             goto out_no_signal;
         }
     }
@@ -134,6 +135,9 @@ out:
     app_event_signal(event);
 
 out_no_signal:
+    close(ctx.kq);
+    ctx.kq = -1;
+
     return NULL;
 }
 
@@ -146,7 +150,7 @@ static void close_fd() {
     ctx.dev_fd = -1;
 }
 
-static int start(driver_event_cb_t out_cb) {
+static int start(driver_event_cb_t out_cb, driver_conn_cb_t conn_cb) {
     int ret = -1;
     struct termios new_attrs = { 0 };
 
@@ -158,10 +162,13 @@ static int start(driver_event_cb_t out_cb) {
     tty_set_attrs_from_config(&ctx.new_attrs, &config);
 
     REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), fail);
+    ctx.attrs_modified = true;
+
     REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), fail);
 
+    conn_cb();
+
     ctx.out_cb = out_cb;
-    ctx.attrs_modified = true;
 
     pthread_create(&ctx.data_loop_thr, NULL, data_loop, out_cb);
 
@@ -182,6 +189,7 @@ static void restart_cb(io_service_t service, uint64_t id, bool added) {
         serial_dev_t dev = { 0 };
         REQUIRE_NOERR(iokit_serial_dev_from_service(service, &dev), out);
         if (strcmp(dev.callout, ctx.callout) == 0) {
+            ctx.restart_success = true;
             CFRunLoopStop(CFRunLoopGetCurrent());
         }
     }
@@ -193,20 +201,27 @@ out:
 static void *restart_loop(void *arg) {
     pthread_setname_np("serial driver restart loop");
 
+    ctx.restart_thr_run_loop = CFRunLoopGetCurrent();
+    ctx.restart_success = false;
+
     REQUIRE_NOERR(iokit_register_serial_devices_events(restart_cb), fail);
 
     CFRunLoopRun();
 
+    ctx.restart_thr_run_loop = NULL;
+
     iokit_unregister_serial_devices_events();
 
-    REQUIRE((ctx.dev_fd = device_open_with_callout(ctx.callout)) != -1, fail);
-    REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), fail);
-    REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), fail);
+    if (ctx.restart_success) {
+        REQUIRE((ctx.dev_fd = device_open_with_callout(ctx.callout)) != -1, fail);
+        REQUIRE_NOERR(tty_set_attrs(ctx.dev_fd, &ctx.new_attrs), fail);
+        REQUIRE_NOERR(device_set_speed(ctx.dev_fd, config.baudrate), fail);
 
-    pthread_create(&ctx.data_loop_thr, NULL, data_loop, ctx.out_cb);
+        pthread_create(&ctx.data_loop_thr, NULL, data_loop, ctx.out_cb);
 
-    restart_cb_t cb = arg;
-    cb();
+        driver_conn_cb_t cb = arg;
+        cb();
+    }
 
     goto out;
 
@@ -218,7 +233,8 @@ out:
     return NULL;
 }
 
-static int restart(restart_cb_t cb) {
+static int restart(driver_conn_cb_t cb) {
+    ctx.data_loop_thr = NULL;
     pthread_create(&ctx.restart_loop_thr, NULL, restart_loop, cb);
     return 0;
 }
@@ -235,10 +251,19 @@ static int quiesce() {
         kevent(ctx.kq, &ke, 1, 0, 0, NULL);
 
         pthread_join(ctx.data_loop_thr, NULL);
-
-        close(ctx.kq);
+        ctx.data_loop_thr = NULL;
 
         close_fd();
+    }
+
+    if (ctx.restart_loop_thr) {
+        if (ctx.restart_thr_run_loop) {
+            CFRunLoopStop(ctx.restart_thr_run_loop);
+            ctx.restart_thr_run_loop = NULL;
+        }
+
+        pthread_join(ctx.restart_loop_thr, NULL);
+        ctx.restart_loop_thr = NULL;
     }
 
     serial_dev_list_destroy();
