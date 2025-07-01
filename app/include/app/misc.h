@@ -1,6 +1,10 @@
 #ifndef APP_MISC_H
 #define APP_MISC_H
 
+/*
+ * Various useful macroses & functions
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -27,8 +31,8 @@
         panic("REQUIRE_NOERR failed - " #_expr); \
     }
 
-#define STR_IMPL_(x)    #x
-#define STR(x)          STR_IMPL_(x)
+#define __STR_IMPL_(x)    #x
+#define STR(x)          __STR_IMPL_(x)
 
 #define ANSI_START   "\x1b["
 #define ANSI_DELIM   ";"

@@ -1,5 +1,4 @@
 #include "lolcat.h"
-
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -21,6 +20,10 @@ struct lolcat_color {
     int len;
 };
 
+/*
+ * pre-generate ASCII values for numbers in the LUT,
+ * so we don't have to convert them at runtime
+ */
 #define LOLCAT_CLR(_clr) \
     {#_clr, _clr, CONST_STRLEN(#_clr)}
 
@@ -39,15 +42,23 @@ static const struct lolcat_color lolcat_lut[] = {
 
 #define LOLCAT_LUT_CNT  (sizeof(lolcat_lut) / sizeof(*lolcat_lut))
 
+/*
+ * save previous index, so we don't have to
+ * lolcatify another character with the same color
+ */
 static int lut_pos_prev = 0;
 static int lut_pos = 0;
+
+/* we shift initial color of a new line to tilt the rainbow */
 static int lut_line_pos = 0;
 static int lut_pos_skip = 0;
 
+/* increase LUT index or go back to 0 if we reached the end */
 static int lut_pos_increment_simple(int curr) {
     return (curr == LOLCAT_LUT_CNT - 1) ? 0 : ++curr;
 }
 
+/* increase LUT index after we repeated current one SKIP_COUNT times */
 static int lut_pos_increment(int curr) {
     lut_pos_skip++;
 
@@ -111,6 +122,7 @@ int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t
             REQUIRE_NOERR(lolcat_push_one(&c, sizeof(c), out + _out_len, &__out_len), fail);
             _out_len += __out_len;
         } else {
+            /* XXX handle tabs as well? */
             switch (c) {
                 case ' ':
                     PUSH(&c, sizeof(c));
@@ -143,7 +155,7 @@ void lolcat_refresh() {
 
 void lolcat_init() {
     lut_pos_prev = -1;
-    lut_pos = arc4random_uniform(LOLCAT_LUT_CNT - 1);
+    lut_pos = arc4random_uniform(LOLCAT_LUT_CNT);
     lut_line_pos = lut_pos;
 }
 

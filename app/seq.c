@@ -16,6 +16,7 @@ static struct {
     uint16_t esc_count;
 } ictx = { 0 };
 
+/* line break & tab technically fall under C0 codes, but to simplify things... */
 static bool is_printable_character(uint8_t c) {
     return (c >= 0x20 && c <= 0x7e) || c == '\t' || c == '\n';
 }
@@ -24,6 +25,7 @@ static bool is_c0_character(uint8_t c) {
     return (c >= 0x07 && c <= 0x0d);
 }
 
+/* checks if a char could be an initial UTF-8 byte */
 static bool is_unicode_character(uint8_t c, uint8_t *len) {
     if (!(c & 0b10000000)) {
         return false;
@@ -49,6 +51,7 @@ static bool is_unicode_character(uint8_t c, uint8_t *len) {
     return false;
 }
 
+/* checks if a char is n-th (2nd+) UTF-8 character */
 static bool is_unicode_nth_character(uint8_t c) {
     return (c & 0b11000000) == 0b10000000;
 }
@@ -65,6 +68,7 @@ enum {
     kEscOutcomeFinish
 };
 
+/* process CSI escape sequence and understand what to do next */
 static int handle_escape_seq(uint8_t c) {
     if (ictx.esc_count == 0) {
         panic("CSI state, but count is zero (?!)");
@@ -111,18 +115,25 @@ out:
     return ret;
 }
 
+/* we were successfully processing a long sequence, but it broke mid-way */
 static void handle_broken_seq(seq_ctx_t *ectx) {
+    /*
+     * if it's in the very beginning (like, start was in previous package),
+     * just behave like we started normally
+     */
     if (ictx.idx == 0) {
         ictx.type = kSeqNone;
         return;
     }
 
+    /* if it was normal printable ASCII text, return it to user */
     if (ictx.type == kSeqNormal) {
         ectx->type = ictx.type;
         ictx.shall_finish = true;
         return;
     }
 
+    /* otherwise treat the sequence as unknown */
     ictx.type = kSeqUnknown;
     ictx.idx++;
 }
@@ -131,6 +142,7 @@ static void handle_ongoing_seq(seq_ctx_t *ectx) {
     ictx.idx++;
 }
 
+/* populate finished sequence data into ctx & prepare to return */
 static void handle_finished_seq(seq_ctx_t *ectx) {
     ectx->type = ictx.type;
     ictx.type = kSeqNone;
@@ -138,15 +150,22 @@ static void handle_finished_seq(seq_ctx_t *ectx) {
     ictx.idx++;
 }
 
+/* called when unknown sequence is finally over */
 static void handle_unknown_seq() {
     ictx.type = kSeqNone;
     ictx.shall_finish = true;
 }
 
+/* long sequences can be split across multiple packages */
 static void handle_interrupted_seq(seq_ctx_t *ectx) {
     ectx->type = ictx.type;
 }
 
+/*
+ * C0 control sequences are not really sequences,
+ * but still require special handling in app code,
+ * so let's act accordingly
+ */
 static void handle_control_seq(seq_ctx_t *ectx) {
     if (ictx.idx == 0) {
         ictx.type = kSeqNone;
@@ -158,6 +177,7 @@ static void handle_control_seq(seq_ctx_t *ectx) {
     ictx.shall_finish = true;
 }
 
+/* nightmare code */
 int seq_process_chars(seq_ctx_t *ectx, const uint8_t *buf, size_t len) {
     ectx->type = kSeqNone;
     ictx.shall_finish = false;

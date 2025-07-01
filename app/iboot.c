@@ -1,3 +1,8 @@
+/*
+ * iBoot obfuscated logs' HMAC matching state machine of sorts,
+ * kinda ugly one
+ */
+
 #include "iboot.h"
 #include "iboot_config.h"
 
@@ -33,6 +38,7 @@ static void iboot_clear_state() {
     state = STATE_WAITING_FOR_HMAC;
 }
 
+/* any lowercase hex digit */
 static int8_t iboot_hmac_character(char c) {
     if (c >= 'a' && c <= 'f') {
         return c - 'a' + 0xA;
@@ -43,6 +49,7 @@ static int8_t iboot_hmac_character(char c) {
     }
 }
 
+/* only decimal digits */
 static int8_t iboot_line_character(char c) {
     if (c >= '0' && c <= '9') {
         return c - '0';

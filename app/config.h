@@ -15,7 +15,7 @@ typedef struct {
     useconds_t delay;
     bool retry;
 
-    /* miscallenous */
+    /* misc */
     bool logging_disabled;
 } app_config_t;
 

@@ -7,6 +7,7 @@
 
 int device_open_with_callout(const char *callout);
 
+/* cannot set precise baud rate via termios on Mac OS X */
 int device_set_speed(int fd, speed_t speed);
 
 void tty_set_attrs_from_config(struct termios *attrs, serial_config_t *config);

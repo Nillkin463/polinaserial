@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* initialize lolcat internal state */
 void lolcat_init();
 
 typedef int (*lolcat_handler_t)(
@@ -14,6 +15,7 @@ typedef int (*lolcat_handler_t)(
     size_t *out_len
 );
 
+/* process ASCII text through lolcat */
 int lolcat_push_ascii(
     const uint8_t *data,
     size_t data_len,
@@ -21,6 +23,7 @@ int lolcat_push_ascii(
     size_t *out_len
 );
 
+/* process multiple bytes as one character, good for Unicode */
 int lolcat_push_one(
     const uint8_t *data,
     size_t len,
@@ -28,7 +31,13 @@ int lolcat_push_one(
     size_t *out_len
 );
 
+/* resets color modes and etc. */
 void lolcat_reset();
+
+/* 
+ * forces to output ANSI color sequence
+ * upon next call into lolcat_push_*()
+ */
 void lolcat_refresh();
 
 #endif

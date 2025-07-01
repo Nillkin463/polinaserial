@@ -1,3 +1,16 @@
+/*
+ * Pushes characters into a relatively large buffer
+ * and only write it to a file when it's full
+ *
+ * Write happens asynchronously on a separate thread,
+ * all while logs keep going into another buffer
+ *
+ * When the other buffer is also full,
+ * switches back to the first one
+ *
+ * IDK if this has any real performance benefit,
+ * but whatever, let it be for now
+ */
 #include <sys/stat.h>
 #include <pthread.h>
 #include <stdlib.h>

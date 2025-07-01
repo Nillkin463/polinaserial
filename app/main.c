@@ -59,6 +59,7 @@ find:
     return 0;
 }
 
+/* gotta switch terminal into "raw" mode to disable echo, control sequences handling and etc. */
 static int app_term_set_raw() {
     int ret = -1;
     struct termios new_attrs = { 0 };
@@ -89,6 +90,10 @@ int app_event_signal(app_event_t event) {
 static app_event_t app_event_loop() {
     app_event_t event = event_wait(&ctx.event);
 
+    /*
+     * reset all lolcat color modes, otherwise messages below
+     * will have a color of the last character from serial output
+     */
     if (config.filter_lolcat) {
         lolcat_reset();
     }
@@ -120,23 +125,27 @@ static app_event_t app_event_loop() {
     return event;
 }
 
-static seq_ctx_t seq_ctx = { 0 };
+/* gotta have this buffer much larger than driver's because of lolcat and etc. */
 uint8_t out_buf[DRIVER_MAX_BUFFER_SIZE * 16] = { 0 };
+static seq_ctx_t seq_ctx = { 0 };
 
 static int app_out_cb(uint8_t *in_buf, size_t in_len) {
     size_t out_len = 0;
     uint8_t *curr_buf = in_buf;
     size_t left = in_len;
 
+    /* just to be safe */
     if (config.filter_lolcat) {
         lolcat_refresh();
     }
 
+    /* call seq_process_chars() until the packet ends */
     while (left) {
         size_t _out_len = 0;
         lolcat_handler_t lolcatify = NULL;
         iboot_log_line_t iboot_line = { 0 };
 
+        /* returns amount of bytes of the same sequence type until it breaks by a different one */
         int cnt = seq_process_chars(&seq_ctx, curr_buf, left);
         REQUIRE_PANIC(cnt > 0);
 
@@ -145,6 +154,7 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
         }
 
         switch (seq_ctx.type) {
+            /* printable ASCII, just lolcatify if requested */
             case kSeqNormal: {
                 if (config.filter_lolcat) {
                     lolcatify = lolcat_push_ascii;
@@ -153,6 +163,10 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
                 break;
             }
 
+            /*
+             * UTF-8, lolcatify, but ONLY if it starts with first UTF-8 byte,
+             * inserting ANSI sequences between UTF-8 char bytes will break it
+             */
             case kSeqUnicode: {
                 if (config.filter_lolcat) {
                     if (seq_ctx.has_utf8_first_byte) {
@@ -163,6 +177,7 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
                 break;
             }
 
+            /* control characters, CSI sequences and unrecognized stuff don't get any special handling */
             case kSeqControl:
             case kSeqEscapeCSI:
             case kSeqUnknown:
@@ -172,10 +187,16 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
                 panic("the hell is this sequence (%d)", seq_ctx.type);
         }
 
+        /* feed current ASCII output into iBoot unobfuscator state machine */
         if (config.filter_iboot && (seq_ctx.type == kSeqNormal)) {
             REQUIRE_PANIC_NOERR(iboot_push_data(curr_buf, cnt));
         }
 
+        /*
+         * iBoot always prints carriage return (\r) before new line (\n),
+         * good moment for us to ask the state machine if it found something,
+         * and if yes, we print it
+         */
         if (seq_ctx.type == kSeqControl && *curr_buf == '\r') {
             if (iboot_trigger(&iboot_line)) {
                 _out_len = sizeof(out_buf) - out_len;
@@ -195,6 +216,7 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
 
         if (!config.logging_disabled) {
             switch (seq_ctx.type) {
+                /* do not push control sequences into log file */
                 case kSeqNormal:
                 case kSeqUnicode:
                     REQUIRE_PANIC_NOERR(log_push(curr_buf, cnt));
@@ -208,6 +230,7 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
         left -= cnt;
     }
 
+    /* packet processing done, write into terminal at last */
     write(STDOUT_FILENO, out_buf, out_len);
 
     return 0;
@@ -310,6 +333,7 @@ void app_print_cfg() {
 
 char __build_tag[256] = { 0 };
 
+/* get our build tag from a separate Mach-O section */
 static char *__get_tag() {
     if (*__build_tag) {
         return __build_tag;
@@ -389,7 +413,7 @@ int main(int argc, const char *argv[]) {
     /* initialize selected driver */
     REQUIRE_NOERR(ctx.driver->init(argc, argv), out);
 
-    /* XXX */
+    /* print full config - of both driver and the app itself */
     app_print_cfg();
 
     /* save TTY's configuration to restore it later */
@@ -398,7 +422,7 @@ int main(int argc, const char *argv[]) {
     /* set terminal to raw mode */
     REQUIRE_NOERR(app_term_set_raw(), out);
 
-    /* driver preflight - XXX */
+    /* driver preflight - menu and etc. */
     REQUIRE_NOERR(ctx.driver->preflight(), out);
 
     /* initialize logging subsystem if needed */

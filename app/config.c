@@ -26,7 +26,7 @@ static void app_config_load_default(app_config_t *config) {
     config->delay = 0;
     config->retry = false;
 
-    /* miscallenous */
+    /* misc */
     config->logging_disabled = false;
 }
 

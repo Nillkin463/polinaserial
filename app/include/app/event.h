@@ -1,6 +1,10 @@
 #ifndef APP_EVENT_H
 #define APP_EVENT_H
 
+/*
+ * Signals to be sent to app code
+ */
+
 typedef enum {
     APP_EVENT_NONE = 0,
     APP_EVENT_DISCONNECT_USER,

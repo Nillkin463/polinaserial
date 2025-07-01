@@ -15,8 +15,13 @@ typedef struct {
     int line;
 } iboot_log_line_t;
 
+/* all the text data passing through serial must go here */
 int  iboot_push_data(const uint8_t *data, size_t data_len);
-int  iboot_output_file(iboot_log_line_t *line, uint8_t *buf, size_t *out_len);
+
+/* if we reached \r char, we shall try to match HMAC against the DB */
 bool iboot_trigger(iboot_log_line_t *line);
+
+/* actually print matched filename + line */
+int iboot_output_file(iboot_log_line_t *line, uint8_t *buf, size_t *out_len);
 
 #endif
