@@ -134,11 +134,6 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
     uint8_t *curr_buf = in_buf;
     size_t left = in_len;
 
-    /* just to be safe */
-    if (config.filter_lolcat) {
-        lolcat_refresh();
-    }
-
     /* call seq_process_chars() until the packet ends */
     while (left) {
         size_t _out_len = 0;
@@ -202,6 +197,10 @@ static int app_out_cb(uint8_t *in_buf, size_t in_len) {
                 _out_len = sizeof(out_buf) - out_len;
                 REQUIRE_PANIC_NOERR(iboot_output_file(&iboot_line, out_buf + out_len, &_out_len));
                 out_len += _out_len;
+
+                if (config.filter_lolcat) {
+                    lolcat_refresh();
+                }
             }
         }
 

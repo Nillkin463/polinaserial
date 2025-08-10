@@ -133,7 +133,7 @@ int lolcat_push_ascii(const uint8_t *data, size_t data_len, uint8_t *out, size_t
                     lut_line_pos = lut_pos_increment_simple(lut_line_pos);
                     lut_pos = lut_line_pos;
                     /* break is missed intentionally */
-    
+
                 default:
                     PUSH(&c, sizeof(c));
                     break;
