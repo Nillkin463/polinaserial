@@ -7,10 +7,10 @@ PROJ_NAME ?= polinaserial
 VALID_STYLES	:=	RELEASE ASAN PROFILING
 VALID_PLATFORMS	:=	macosx iphoneos
 
-STYLES		?=	$(VALID_STYLES)
+STYLES		?=	RELEASE
 MAKE_STYLES	=	$(filter $(VALID_STYLES), $(STYLES))
 
-PLATFORMS		?=	$(VALID_PLATFORMS)
+PLATFORMS		?=	macosx
 MAKE_PLATFORMS	=	$(filter $(VALID_PLATFORMS), $(PLATFORMS))
 
 LIST = $(foreach platform,$(MAKE_PLATFORMS),$(addprefix $(platform)-,$(MAKE_STYLES)))
