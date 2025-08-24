@@ -61,6 +61,7 @@ static const iboot_hmac_config_t iboot_hmac_config[] = {
     {0x0289577b27d4955c, "platform/s5l8960x/miu/miu.c"},
     {0x0289f1bf120a54cc, "target/watch2/init_product.c"},
     {0x029093de751e1f6a, "apps/common/firmware.c"},
+    {0x0294996b11476fb0, "drivers/apple/wpc/wpc_v3.c"},
     {0x029e183cf63ce738, "drivers/display/summit/summit.c"},
     {0x02d2fa2a9625c0de, "lib/rtbuddy/endpoints/syslog_ep.c"},
     {0x02de7d9521ea645b, "target/ipad5c/pinconfig_proto3.c"},
