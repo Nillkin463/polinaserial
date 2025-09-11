@@ -6,14 +6,19 @@
 #include "iboot.h"
 #include "iboot_config.h"
 
+#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <app/misc.h>
+
+static iboot_hmac_config_t *aux_iboot_hmac_config = NULL;
+static size_t aux_iboot_hmac_config_count = 0;
 
 typedef enum {
     STATE_WAITING_FOR_HMAC = 0,
@@ -56,33 +61,6 @@ static int8_t iboot_line_character(char c) {
     } else {
         return -1;
     }
-}
-
-static const char *iboot_find_file_for_hmac(uint64_t hmac) {
-    if (hmac < iboot_hmac_config[0].hmac || hmac > iboot_hmac_config[iboot_hmac_config_count - 1].hmac) {
-        return NULL;
-    }
-
-    const iboot_hmac_config_t *current_config = (const iboot_hmac_config_t *)&iboot_hmac_config;
-
-    size_t l = 0;
-    size_t r = iboot_hmac_config_count - 1;
-
-    while (l <= r) {
-        ssize_t c = (l + r) / 2;
-
-        const iboot_hmac_config_t *current = (const iboot_hmac_config_t *)&current_config[c];
-
-        if (current->hmac < hmac) { 
-            l = c + 1;
-        } else if (current->hmac > hmac) {
-            r = c - 1;
-        } else {
-            return current->file;
-        }
-    }
-
-    return NULL;
 }
 
 int iboot_push_data(const uint8_t *data, size_t data_len) {
@@ -170,6 +148,46 @@ int iboot_output_file(iboot_log_line_t *line, uint8_t *buf, size_t *out_len) {
     return 0;
 }
 
+
+static const char *iboot_find_file_for_hmac_internal(iboot_hmac_config_t *config, size_t count, uint64_t hmac) {
+    if (hmac < config[0].hmac || hmac > config[count - 1].hmac) {
+        return NULL;
+    }
+
+    const iboot_hmac_config_t *current_config = (const iboot_hmac_config_t *)config;
+
+    size_t l = 0;
+    size_t r = count - 1;
+
+    while (l <= r) {
+        ssize_t c = (l + r) / 2;
+
+        const iboot_hmac_config_t *current = (const iboot_hmac_config_t *)&current_config[c];
+
+        if (current->hmac < hmac) { 
+            l = c + 1;
+        } else if (current->hmac > hmac) {
+            r = c - 1;
+        } else {
+            return current->file;
+        }
+    }
+
+    return NULL;
+}
+
+static const char *iboot_find_file_for_hmac(uint64_t hmac) {
+    const char *res = iboot_find_file_for_hmac_internal((iboot_hmac_config_t *)iboot_hmac_config, iboot_hmac_config_count, hmac);
+    if (res) {
+        return res;
+    } else if (aux_iboot_hmac_config && aux_iboot_hmac_config_count) {
+        /* look up auxiliary database if it's loaded */
+        return iboot_find_file_for_hmac_internal(aux_iboot_hmac_config, aux_iboot_hmac_config_count, hmac);
+    }
+
+    return NULL;
+}
+
 bool iboot_trigger(iboot_log_line_t *line) {
     bool ret = false;
     if (state == STATE_WAITING_FOR_LINE) {
@@ -184,4 +202,161 @@ bool iboot_trigger(iboot_log_line_t *line) {
     iboot_clear_state();
 
     return ret;
+}
+
+// ============================ Aux HMACs loading ============================
+
+static int _read_file(const char *path, char **buf, size_t *len) {
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        POLINA_ERROR("failed to open aux iBoot HMAC database");
+        return -1;
+    }
+
+    struct stat st = { 0 };
+    fstat(fd, &st);
+    size_t _len = st.st_size;
+
+    char *_buf = malloc(_len + 1 /* final line break */ + 1 /* NULL terminator */);
+    if (!_buf) {
+        POLINA_ERROR("out of memory?!");
+        close(fd);
+        return -1;
+    }
+
+    int ret = read(fd, _buf, _len);
+    close(fd);
+
+    if (ret != _len) {
+        POLINA_ERROR("failed to read aux iBoot HMAC database");
+        free(_buf);
+        return -1;
+    }
+
+    /* if there's no line break in the end - add it */
+    if (_buf[_len - 1] != '\n') {
+        _buf[_len] = '\n';
+        _len++;
+    }
+
+    _buf[_len] = '\0';
+
+    *buf = _buf;
+    *len = _len;
+
+    return 0;
+}
+
+static int _parse_line(const char *buf, size_t len, iboot_hmac_config_t *out) {
+    const char *delim = strchr(buf, ':');
+
+    size_t hmac_raw_len = delim - buf;
+
+    char hmac_raw[hmac_raw_len + 1];
+    memcpy(hmac_raw, buf, hmac_raw_len);
+    hmac_raw[hmac_raw_len] = '\0';
+
+    char *endptr = NULL;
+    uint64_t hmac = strtoull(hmac_raw, &endptr, 16);
+    if (*endptr != '\0') {
+        return -1;
+    }
+
+    off_t name_start = delim - buf + 1;
+    size_t name_len = len - name_start;
+
+    out->hmac = hmac;
+    out->file = strndup(buf + name_start, name_len);
+
+    return 0;
+}
+
+static int _parse_file(const char *buf, size_t len, iboot_hmac_config_t out[], int *cnt) {
+    int _cnt = 0;
+    off_t idx = 0;
+
+    while (idx < len) {
+        const char *l_end = strchr(buf + idx, '\n');
+        if (!l_end) {
+            break;
+        }
+
+        size_t l_len = l_end - (buf + idx);
+
+        if (l_len != 0 && buf[idx] != '#') {
+            if (out) {
+                if (_parse_line(buf + idx, l_len, &out[_cnt]) != 0) {
+                    POLINA_ERROR("bad line @ index %lld", idx);
+                    return -1;
+                }
+            }
+
+            _cnt++;
+        }
+
+        idx += l_len + 1;
+    }
+
+    *cnt = _cnt;
+
+    return 0;
+}
+
+static int _comp_func(const void *one, const void *two) {
+    uint64_t _one = ((iboot_hmac_config_t *)one)->hmac;
+    uint64_t _two = ((iboot_hmac_config_t *)two)->hmac;
+
+    if (_one < _two) {
+        return -1;
+    } else if (_one == _two) {
+        return 0;
+    } else if (_one > _two) {
+        return 1;
+    }
+
+    abort();
+}
+
+int iboot_load_aux_hmacs(const char *path) {
+    char *cont = NULL;
+    size_t len = 0;
+
+    if (_read_file(path, &cont, &len) != 0) {
+        return -1;
+    }
+
+    int cnt = 0;
+    if (_parse_file(cont, len, NULL, &cnt) != 0) {
+        return -1;
+    }
+
+    iboot_hmac_config_t *_aux = malloc(cnt * sizeof(iboot_hmac_config_t));
+    if (!_aux) {
+        POLINA_WARNING("out of memory?!");
+        return -1;
+    }
+
+    if (_parse_file(cont, len, _aux, &cnt) != 0) {
+        return -1;
+    }
+
+    qsort(_aux, cnt, sizeof(*_aux), _comp_func);
+
+    aux_iboot_hmac_config = _aux;
+    aux_iboot_hmac_config_count = cnt;
+
+    return 0;
+}
+
+void iboot_destroy_aux_hmacs() {
+    if (aux_iboot_hmac_config && aux_iboot_hmac_config_count) {
+        for (size_t i = 0; i < aux_iboot_hmac_config_count; i++) {
+            free(aux_iboot_hmac_config[i].file);
+        }
+
+        free(aux_iboot_hmac_config);
+    }
+
+    aux_iboot_hmac_config = NULL;
+    aux_iboot_hmac_config_count = 0;
 }

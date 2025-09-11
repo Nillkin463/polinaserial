@@ -20,7 +20,8 @@
 #include "seq.h"
 #include "log.h"
 
-#define DEFAULT_DRIVER  "serial"
+#define DEFAULT_DRIVER      "serial"
+#define IBOOT_HMACS_VAR     "POLINASERIAL_IBOOT_HMACS"
 
 static app_config_t config = { 0 };
 
@@ -322,6 +323,10 @@ int app_quiesce(int ret) {
         ret = -1;
     }
 
+    if (config.filter_iboot) {
+        iboot_destroy_aux_hmacs();
+    }
+
     return ret;
 }
 
@@ -392,12 +397,6 @@ int main(int argc, const char *argv[]) {
 
     int ret = -1;
 
-    app_term_scroll();
-    app_term_clear_page();
-
-    /* print version */
-    app_version();
-
     /* getting driver & advancing args if needed */
     if (app_get_driver(&ctx.driver, &argc, &argv) != 0) {
         return -1;
@@ -409,8 +408,20 @@ int main(int argc, const char *argv[]) {
         return -1;
     }
 
+    /* load additional iBoot HMACs from external file */
+    if (config.filter_iboot && getenv(IBOOT_HMACS_VAR)) {
+        iboot_load_aux_hmacs(getenv(IBOOT_HMACS_VAR));
+    }
+
     /* initialize selected driver */
     REQUIRE_NOERR(ctx.driver->init(argc, argv), out);
+
+    /* scroll terminal to a new page and clear it */
+    app_term_scroll();
+    app_term_clear_page();
+
+    /* print version */
+    app_version();
 
     /* print full config - of both driver and the app itself */
     app_print_cfg();
