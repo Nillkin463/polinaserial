@@ -363,6 +363,8 @@ void app_version() {
 }
 
 static void help(const char *program_name) {
+    app_version();
+
     printf("usage: %s DRIVER <options>\n", program_name);
     printf("\n");
 
