@@ -388,6 +388,16 @@ static void help(const char *program_name) {
     printf("\t-h\tshow this help menu\n");
     printf("\n");
 
+    printf("additional iBoot HMAC map can be loaded via POLINASERIAL_IBOOT_HMACS variable,\n");
+    printf("it must be a path to a text file with the following structure:\n");
+    printf("\n");
+    printf("\tHMAC:FILENAME\n");
+    printf("\tHMAC:FILENAME\n");
+    printf("\t...\n");
+    printf("\n");
+    printf("check \"iboot_aux_hmacs.txt\" provided along with the program for reference\n");
+    printf("\n");
+
     printf("default DRIVER is \"" DEFAULT_DRIVER "\"\n");
     printf("logs are collected to ~/Library/Logs/" PRODUCT_NAME "/\n");
 }

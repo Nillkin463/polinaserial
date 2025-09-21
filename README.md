@@ -9,13 +9,14 @@ Serial port monitor program for Mac OS X and derivative platforms
 ## Features
 
 * Automatic obfuscated iBoot logs deobfuscation, when possible
-    * All files available in the iOS 9 iBoot source code leak & 300+ recovered ones, including newer files that were never a part of the leak
+    * All files available in the iOS 9 iBoot source code leak & 500+ recovered ones, including newer files that were never a part of the leak
+		* The ones I'm less confident about are shipped in a separate file (`iboot_aux_hmacs.txt`) that you can pass via `POLINASERIAL_IBOOT_HMACS` environment variable
 
 * Input/output filtering
     * Automatically add carriage return (`\r`) to line breaks (`\n`)
         * Some firmwares do not do that on their own (for instance, Apple EFI diags)
     * Replace delete keys (`0x7F`) with backspace (`0x08`) in user input
-        * Good for older diags where `0x7F` gets misinterpreted as Enter
+        * Good for older diags where `0x7F` gets misinterpreted as a line break
 
 * Lolcat support - paint your logs in rainbow colors for cool screenshots and videos
 
@@ -26,7 +27,7 @@ Serial port monitor program for Mac OS X and derivative platforms
     * Logs are collected to `~/Library/Logs/polinaserial/<DEVICE>/<SESSION>`
     * Can be disabled via command line option
 
-* Reconnecting automatically in case of device loss and rediscovery
+* Reconnecting automatically in case of device disconnect and rediscovery
 
 * Optionally delaying user input
     * Good for pasting a lot of text into XNU serial console that might be partially lost otherwise
@@ -69,6 +70,15 @@ available miscallenous options:
 	-g	disable logging
 	-h	show this help menu
 
+additional iBoot HMAC map can be loaded via POLINASERIAL_IBOOT_HMACS variable,
+it must be a path to a text file with the following structure:
+
+		HMAC:FILENAME
+		HMAC:FILENAME
+		...
+
+check "iboot_aux_hmacs.txt" provided along with the program for reference
+
 default DRIVER is "serial"
 logs are collected to ~/Library/Logs/polinaserial/
 ```
@@ -79,7 +89,7 @@ logs are collected to ~/Library/Logs/polinaserial/
 make [STYLES="RELEASE ASAN PROFILING"] [PLATFORMS="macosx iphoneos"]
 ```
 
-By default only RELEASE/macosx is built, other targets needs to be specified manually
+By default only `RELEASE/macosx` is built, other targets needs to be specified manually
 
 Xcode 16 broke linking for armv7 binaries, so armv7 builds are gated behind `WITH_ARMV7=1` variable for a case you'd want to build it with an older SDK
 
