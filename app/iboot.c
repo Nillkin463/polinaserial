@@ -247,23 +247,35 @@ static int _read_file(const char *path, char **buf, size_t *len) {
     return 0;
 }
 
+#define HMAC_MAX_RAW_LEN    (16 /* digits */ + 2 /* "0x" */)
+#define PATH_MAX_LEN        (PATH_MAX)
+
 static int _parse_line(const char *buf, size_t len, iboot_hmac_config_t *out) {
     const char *delim = strchr(buf, ':');
 
     size_t hmac_raw_len = delim - buf;
+    if (hmac_raw_len > HMAC_MAX_RAW_LEN) {
+        POLINA_ERROR("HMAC is too long!");
+        return -1;
+    }
 
-    char hmac_raw[hmac_raw_len + 1];
+    char hmac_raw[HMAC_MAX_RAW_LEN + 1] = { 0 };
     memcpy(hmac_raw, buf, hmac_raw_len);
-    hmac_raw[hmac_raw_len] = '\0';
 
     char *endptr = NULL;
     uint64_t hmac = strtoull(hmac_raw, &endptr, 16);
     if (*endptr != '\0') {
+        POLINA_ERROR("failed to decode HMAC!");
         return -1;
     }
 
     off_t name_start = delim - buf + 1;
     size_t name_len = len - name_start;
+
+    if (name_len > PATH_MAX_LEN) {
+        POLINA_ERROR("name is too long!");
+        return -1;
+    }
 
     out->hmac = hmac;
     out->file = strndup(buf + name_start, name_len);
@@ -286,7 +298,7 @@ static int _parse_file(const char *buf, size_t len, iboot_hmac_config_t out[], i
         if (l_len != 0 && buf[idx] != '#') {
             if (out) {
                 if (_parse_line(buf + idx, l_len, &out[_cnt]) != 0) {
-                    POLINA_ERROR("bad line @ index %lld", idx);
+                    POLINA_ERROR("bad line @ %lld", idx);
                     return -1;
                 }
             }

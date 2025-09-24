@@ -422,7 +422,9 @@ int main(int argc, const char *argv[]) {
 
     /* load additional iBoot HMACs from external file */
     if (config.filter_iboot && getenv(IBOOT_HMACS_VAR)) {
-        iboot_load_aux_hmacs(getenv(IBOOT_HMACS_VAR));
+        if (iboot_load_aux_hmacs(getenv(IBOOT_HMACS_VAR)) != 0) {
+            return -1;
+        }
     }
 
     /* initialize selected driver */
