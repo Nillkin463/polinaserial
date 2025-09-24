@@ -15,6 +15,7 @@ MAKE_PLATFORMS	=	$(filter $(VALID_PLATFORMS), $(PLATFORMS))
 
 LIST = $(foreach platform,$(MAKE_PLATFORMS),$(addprefix $(platform)-,$(MAKE_STYLES)))
 
+# this fuckshit behaves super weird
 DIRTY := $(shell git diff-files --quiet; if [ $$? != 0 ]; then echo -dirty; fi)
 
 BUILD_TAG_BASE_FILE := .tag
