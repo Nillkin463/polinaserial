@@ -1,2 +1,9 @@
-/build
+.clangd
+.vscode
 .DS_Store
+.tag
+.tag_final
+__pycache__
+/build
+/include-ios
+/package

@@ -1,0 +1,9 @@
+LOCAL_DIR := $(GET_LOCAL_DIR)
+
+RANDOM_ONLY_IN := ASAN PROFILING
+
+ifneq ($(filter $(STYLE),$(RANDOM_ONLY_IN)),)
+	OBJECTS += \
+		$(CURRENT_ROOT)/$(LOCAL_DIR)/random.o
+endif
+

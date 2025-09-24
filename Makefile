@@ -3,66 +3,40 @@
 #
 
 PROJ_NAME ?= polinaserial
-WITH_UART_EXTRA ?= 0
 
-CC ?= clang
+VALID_STYLES	:=	RELEASE ASAN PROFILING
+VALID_PLATFORMS	:=	macosx iphoneos
 
-ARCHS = -arch x86_64 -arch arm64
-MACOSX_MIN_VERSION = -mmacosx-version-min=10.7
+STYLES		?=	RELEASE
+MAKE_STYLES	=	$(filter $(VALID_STYLES), $(STYLES))
 
-_CFLAGS += $(ARCHS)
-_CFLAGS += $(MACOSX_MIN_VERSION)
-_CFLAGS += -O3
-_CFLAGS += -Iinclude
-_CFLAGS += -MMD
-_CFLAGS += $(CFLAGS)
-_CFLAGS += -DPRODUCT_NAME=\"$(PROJ_NAME)\"
-_CFLAGS += -DWITH_UART_EXTRA=$(WITH_UART_EXTRA)
+PLATFORMS		?=	macosx
+MAKE_PLATFORMS	=	$(filter $(VALID_PLATFORMS), $(PLATFORMS))
 
-_LDFLAGS += $(ARCHS)
-_LDFLAGS += $(MACOSX_MIN_VERSION)
-_LDFLAGS += -framework CoreFoundation
-_LDFLAGS += -framework IOKit
-_LDFLAGS += $(LDFLAGS)
+LIST = $(foreach platform,$(MAKE_PLATFORMS),$(addprefix $(platform)-,$(MAKE_STYLES)))
 
-SRC_ROOT = src
-BUILD_ROOT = build
+# this fuckshit behaves super weird
+DIRTY := $(shell git diff-files --quiet; if [ $$? != 0 ]; then echo -dirty; fi)
 
-SOURCES = \
-	main.c \
-	configuration.c \
-	ll.c \
-	menu.c \
-	device.c \
-	serial.c \
-	log.c \
-	lolcat.c \
-	iboot.c
+BUILD_TAG_BASE_FILE := .tag
+BUILD_TAG_FILE 		:= .tag_final
 
-_SOURCES = $(addprefix $(SRC_ROOT)/, $(SOURCES))
-OBJECTS = $(addprefix $(BUILD_ROOT)/, $(_SOURCES:.c=.o))
+ifeq ($(WITH_TAG),1)
+    $(shell printf "%s%s" $(shell cat $(BUILD_TAG_BASE_FILE)) $(DIRTY) > $(BUILD_TAG_FILE))
+else
+    $(shell printf "%s-%s%s" $(PROJ_NAME) $(shell TZ=UTC date +"%Y-%m-%dT%H:%M:%S") $(DIRTY) > $(BUILD_TAG_FILE))
+endif
 
-BINARY = $(BUILD_ROOT)/$(PROJ_NAME)
+BUILD_ROOT := build
 
-DIR_HELPER = mkdir -p $(@D)
+all:	$(LIST)
 
-.PHONY: clean all
-
-all: $(BINARY)
-	@echo "%%%%% done building"
-
-$(BINARY): $(OBJECTS)
-	@echo "\tlinking"
-	@$(DIR_HELPER)
-	@$(CC) $(_LDFLAGS) $^ -o $@
-
-$(BUILD_ROOT)/%.o: %.c
-	@echo "\tbuilding C: $<"
-	@$(DIR_HELPER)
-	@$(CC) $(_CFLAGS) -c $< -o $@ 
+$(LIST):	platform	=	$(word 1, $(subst -, ,$@))
+$(LIST):	style		=	$(word 2, $(subst -, ,$@))
+$(LIST):
+	@echo %%% building $(platform)-$(style)
+	@$(MAKE) -f makefiles/main.mk PLATFORM=$(platform) STYLE=$(style) BUILD_ROOT=$(BUILD_ROOT) BUILD_TAG_FILE=$(BUILD_TAG_FILE) PROJ_NAME=$(PROJ_NAME)
 
 clean:
 	$(shell rm -rf $(BUILD_ROOT))
 	@echo "%%%%% done cleaning"
-
--include $(OBJECTS:.o=.d)
