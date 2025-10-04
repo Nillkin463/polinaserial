@@ -115,5 +115,6 @@ DRIVER_ADD(
     quiesce,
     log_name,
     print_cfg,
-    help
+    help,
+    ""
 );

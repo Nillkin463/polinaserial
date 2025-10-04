@@ -8,12 +8,6 @@
 #include "config.h"
 #include "baudrate_presets.h"
 
-#if WITH_UART_EXTRA
-    #define ARGUMENTS   ":d:b:c:t:p:f:nkil"
-#else
-    #define ARGUMENTS   ":d:b:nkil"
-#endif
-
 #define BAUDRATE_MIN    300
 #define BAUDRATE_MAX    3000000
 
@@ -49,9 +43,17 @@ int serial_config_load(int argc, const char *argv[], serial_config_t *config) {
     config->flow_control = FLOW_CONTROL_NONE;
 
     char c;
-    while ((c = getopt(argc, (char *const *)argv, ARGUMENTS)) != -1) {
-        if (app_config_arg_consumed(optopt)) {
-            continue;
+    while ((c = getopt(argc, (char *const *)argv, SERIAL_ARGUMENTS)) != -1) {
+        app_arg_consumed_t consumed = app_config_arg_consumed(optopt);
+        
+        switch (consumed) {
+            case APP_ARG_CONSUMED_WITH_ARG:
+                optind++;
+            case APP_ARG_CONSUMED:
+                continue;
+
+            default:
+                break;
         }
 
         switch (c) {
@@ -137,11 +139,6 @@ int serial_config_load(int argc, const char *argv[], serial_config_t *config) {
 #endif
             case ':': {
                 POLINA_WARNING("-%c needs argument", optopt);
-                return -1;
-            }
-            
-            case '?': {
-                POLINA_WARNING("unknown argument -%c", optopt);
                 return -1;
             }
 

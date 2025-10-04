@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#if WITH_UART_EXTRA
+    #define SERIAL_ARGUMENTS   ":d:b:c:t:p:f:nkil"
+#else
+    #define SERIAL_ARGUMENTS   ":d:b:nkil"
+#endif
+
 typedef enum {
     PARITY_NONE,
     PARITY_EVEN,

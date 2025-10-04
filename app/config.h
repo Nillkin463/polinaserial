@@ -19,6 +19,7 @@ typedef struct {
     bool logging_disabled;
 } app_config_t;
 
+void app_config_init(const char *driver_opts);
 int  app_config_load(int argc, const char *argv[], app_config_t *config);
 void app_print_cfg_internal(app_config_t *config);
 

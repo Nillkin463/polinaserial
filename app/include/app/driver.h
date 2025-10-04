@@ -19,23 +19,24 @@ typedef int (*driver_conn_cb_t)();
 
 /* driver struct, each driver must declare it via DRIVER_ADD() macro */
 typedef struct {
-    char name[24];  // name shown in help menu
+    char name[24];                              // name shown in help menu
     int  (*init)(int argc, const char *argv[]); // early init, process input arguments here
-    int  (*preflight)();    // serial driver invokes menu or looks up serial device here
+    int  (*preflight)();                        // serial driver invokes menu or looks up serial device here
     int  (*start)(driver_event_cb_t out_cb, driver_conn_cb_t conn_cb);  // actually opens device & starts data loop thread,
                                                                         // must NOT block
-    int  (*restart)(driver_conn_cb_t cb);   // implement device reconnection logic here, must NOT block
+    int  (*restart)(driver_conn_cb_t cb);       // implement device reconnection logic here, must NOT block
     int  (*write)(uint8_t *buf, size_t len);    // sends user input into device
-    int  (*quiesce)();  // gracefully shutdowns everything
+    int  (*quiesce)();                          // gracefully shutdowns everything
     void (*log_name)(char name[], size_t len);  // returns name for logging folder
-    void (*print_cfg)();    // prints driver-specific configuration
-    void (*help)();     // prints help menu entry
+    void (*print_cfg)();                        // prints driver-specific configuration
+    void (*help)();                             // prints help menu entry
+    char optstring[32];                         // options as for getopt()
 } driver_t;
 
 /* declares driver struct, so that app can look it up and call into it */
-#define DRIVER_ADD(name, init, preflight, start, restart, write, quiesce, log_name, print_cfg, help) \
+#define DRIVER_ADD(name, init, preflight, start, restart, write, quiesce, log_name, print_cfg, help, optstring) \
     __attribute__((used, disable_sanitizer_instrumentation)) static const driver_t __driver_##name __attribute__((section("__DATA,__drivers"))) = \
-        {#name, init, preflight, start, restart, write, quiesce, log_name, print_cfg, help};
+        {#name, init, preflight, start, restart, write, quiesce, log_name, print_cfg, help, optstring};
 
 extern const void *_gDrivers      __asm("section$start$__DATA$__drivers");
 extern const void *_gDriversEnd   __asm("section$end$__DATA$__drivers");

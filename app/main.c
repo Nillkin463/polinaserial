@@ -414,6 +414,9 @@ int main(int argc, const char *argv[]) {
         return -1;
     }
 
+    /* make argument parser aware of driver-specific options */
+    app_config_init(ctx.driver->optstring);
+
     /* load app configuration from args */
     if (app_config_load(argc, argv, &config) != 0) {
         help(argv[0]);

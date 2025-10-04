@@ -299,5 +299,6 @@ DRIVER_ADD(
     quiesce,
     log_name,
     print_cfg,
-    serial_help
+    serial_help,
+    SERIAL_ARGUMENTS
 );

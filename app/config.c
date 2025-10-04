@@ -1,18 +1,36 @@
 #include <stdlib.h>
+#include <string.h>
 #include <app.h>
 #include <app/misc.h>
 #include "config.h"
 
 #define APP_ARGUMENTS   ":nkilghu:r"
 
-bool app_config_arg_consumed(char c) {
-    for (int i = 0; i < sizeof(APP_ARGUMENTS) - 1; i++) {
-        if (c == APP_ARGUMENTS[i]) {
-            return true;
+static char opts[64] = { 0 };
+
+void app_config_init(const char *driver_opts) {
+    if (*driver_opts == ':') {
+        driver_opts++;
+    }
+
+    snprintf(opts, sizeof(opts), "%s%s", APP_ARGUMENTS, driver_opts);
+}
+
+app_arg_consumed_t app_config_arg_consumed(char c) {
+    const char *__opts = APP_ARGUMENTS;
+    char __opt = 0;
+
+    while ((__opt = *__opts++)) {
+        if (__opt == c) {
+            if (*__opts == ':') {
+                return APP_ARG_CONSUMED_WITH_ARG;
+            }
+
+            return APP_ARG_CONSUMED;
         }
     }
 
-    return false;
+    return APP_ARG_NOT_CONSUMED;
 }
 
 static void app_config_load_default(app_config_t *config) {
@@ -38,7 +56,7 @@ int app_config_load(int argc, const char *argv[], app_config_t *config) {
     optreset = 1;
 
     char c;
-    while ((c = getopt(argc, (char *const *)argv, APP_ARGUMENTS)) != -1) {
+    while ((c = getopt(argc, (char *const *)argv, opts)) != -1) {
         switch (c) {
             case 'n': {
                 config->filter_return = true;
@@ -89,14 +107,16 @@ int app_config_load(int argc, const char *argv[], app_config_t *config) {
                 POLINA_WARNING("-%c needs argument", optopt);
                 return -1;
             }
-            
+
             case '?': {
+                POLINA_WARNING("unknown argument -%c", optopt);
+                return -1;
+            }
+
+            default: {
                 /* might be consumed by drivers */
                 break;
             }
-
-            default:
-                abort();
         }
     }
 
