@@ -34,6 +34,18 @@ Serial port monitor program for Mac OS X and derivative platforms
 
 * Baudrate presets for some common Apple targets
 
+## Changelog
+
+<details>
+
+### polinaserial-1.0.1
+* Fixed various bugs in argument parsing
+
+### polinaserial-1
+Initial release
+
+</details>
+
 ## Usage (crash course)
 
 `polinaserial` run without any args provided tries to keep things as raw as possible. However, this is usually **NOT** the desired configuration. For iOS things use `-nk` options to keep input/output sane:
