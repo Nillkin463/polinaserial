@@ -34,6 +34,21 @@ Serial port monitor program for Mac OS X and derivative platforms
 
 * Baudrate presets for some common Apple targets
 
+## Usage (crash course)
+
+`polinaserial` run without any args provided tries to keep things as raw as possible. However, this is usually **NOT** the desired configuration. For iOS things use `-nk` options to keep input/output sane:
+
+```
+➜  ~ polinaserial -nk
+```
+
+* Add `-i` to deobfuscate RELEASE iBoot logs
+	* Pass `POLINASERIAL_IBOOT_HMACS=/path/to/iboot_aux_hmacs.txt` as environment variable to load more iBoot HMAC mappings, or export it via shell configuration scripts
+
+* Add `-l` to paint output into rainbow colors (lolcat)
+
+Serial configuration defaults to **115200** baud rate, **8 data bits**, **1 stop bit** and **no parity** - default config for iOS stuff (iBoot, XNU & etc.)
+
 ## Usage
 
 ```
